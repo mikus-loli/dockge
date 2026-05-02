@@ -79,9 +79,6 @@
                     <div class="d-flex align-items-center mb-3">
                         <span v-if="twoFAStatus" class="badge bg-success me-2">{{ $t("Active") }}</span>
                         <span v-else class="badge bg-secondary me-2">{{ $t("Inactive") }}</span>
-                        <span v-if="twoFAStatus && twoFAMethod" class="text-muted">
-                            ({{ twoFAMethod === 'totp' ? $t('Authenticator App') : $t('SMS Verification') }})
-                        </span>
                     </div>
 
                     <div v-if="twoFAStatus" class="mb-3">
@@ -109,7 +106,7 @@
                     </div>
 
                     <div v-if="twoFAStatus && recoveryCodesCount !== null" class="mt-3">
-                        <p class="text-muted">
+                        <p class="form-text">
                             {{ $t("Recovery Codes") }}: {{ recoveryCodesCount }} {{ $t("remaining") }}
                             <span v-if="recoveryCodesCount <= 2" class="text-warning ms-1">
                                 ({{ $t("Low recovery codes, please regenerate") }})
@@ -200,7 +197,6 @@ export default {
                 repeatNewPassword: "",
             },
             twoFAStatus: null,
-            twoFAMethod: null,
             recoveryCodesCount: null,
             disable2FAPassword: "",
         };
@@ -233,7 +229,6 @@ export default {
             this.$root.getSocket().emit("twoFAStatus", (res) => {
                 if (res.ok) {
                     this.twoFAStatus = res.status;
-                    this.twoFAMethod = res.method;
                     this.recoveryCodesCount = res.recoveryCodesCount;
                 } else {
                     toast.error(res.msg);

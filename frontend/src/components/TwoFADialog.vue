@@ -68,7 +68,7 @@
                                     <input id="verify-token" v-model="token" type="text" maxlength="6" class="form-control" autocomplete="one-time-code" required placeholder="000000">
                                     <button class="btn btn-outline-primary" type="button" @click="verifyToken()">{{ $t("Verify Token") }}</button>
                                 </div>
-                                <p v-show="tokenValid" class="mt-2" style="color: green;">
+                                <p v-show="tokenValid" class="mt-2 text-success">
                                     <i class="fas fa-check-circle"></i> {{ $t("tokenValidSettingsMsg") }}
                                 </p>
                                 <p v-show="tokenValid === false && tokenVerified" class="mt-2 text-danger">
@@ -79,57 +79,6 @@
 
                         <!-- 2FA is Active - Settings Panel -->
                         <div v-if="twoFAStatus == true">
-                            <!-- Current Method Display -->
-                            <div class="mb-4">
-                                <h6 class="mb-3">{{ $t("Current 2FA Method") }}</h6>
-                                <div class="d-flex align-items-center">
-                                    <div class="form-check me-3">
-                                        <input id="method-totp" v-model="currentMethod" class="form-check-input" type="radio" value="totp" :disabled="switchingMethod">
-                                        <label class="form-check-label" for="method-totp">
-                                            <i class="fas fa-mobile-alt me-1"></i> {{ $t("Authenticator App (TOTP)") }}
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input id="method-sms" v-model="currentMethod" class="form-check-input" type="radio" value="sms" :disabled="switchingMethod || !smsPhone">
-                                        <label class="form-check-label" for="method-sms">
-                                            <i class="fas fa-sms me-1"></i> {{ $t("SMS Verification") }}
-                                            <span v-if="!smsPhone" class="text-muted">({{ $t("Setup required") }})</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <button v-if="currentMethod !== originalMethod" class="btn btn-primary btn-sm mt-2" :disabled="switchingMethod" @click="switchMethod()">
-                                    <div v-if="switchingMethod" class="spinner-border spinner-border-sm me-1"></div>
-                                    {{ $t("Switch Method") }}
-                                </button>
-                            </div>
-
-                            <!-- SMS Setup Section -->
-                            <div class="mb-4">
-                                <h6 class="mb-3">{{ $t("SMS Verification Setup") }}</h6>
-                                <div class="alert alert-secondary">
-                                    <small>{{ $t("SMS verification sends a code to your phone as a backup 2FA method. You must enable TOTP first before adding SMS.") }}</small>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-8">
-                                        <div class="mb-3">
-                                            <label for="sms-phone" class="form-label">{{ $t("Phone Number") }}</label>
-                                            <input id="sms-phone" v-model="smsPhoneInput" type="tel" class="form-control" placeholder="+1234567890">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 d-flex align-items-end">
-                                        <button class="btn btn-outline-primary btn-sm" :disabled="!smsPhoneInput" @click="setupSMS()">
-                                            {{ smsPhone ? $t("Update Phone") : $t("Save Phone") }}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div v-if="smsPhone" class="mt-2">
-                                    <button class="btn btn-outline-secondary btn-sm" @click="sendTestSMS()">
-                                        <i class="fas fa-paper-plane me-1"></i> {{ $t("Send Test Code") }}
-                                    </button>
-                                    <span v-if="testSMSSent" class="text-success ms-2"><i class="fas fa-check"></i> {{ $t("Code sent! Check server logs.") }}</span>
-                                </div>
-                            </div>
-
                             <!-- Recovery Codes Section -->
                             <div class="mb-4">
                                 <h6 class="mb-3">{{ $t("Recovery Codes") }}</h6>
@@ -142,7 +91,7 @@
                                         <div class="card-body">
                                             <div class="row">
                                                 <div v-for="(code, index) in displayedRecoveryCodes" :key="index" class="col-md-6">
-                                                    <code class="fs-6">{{ code }}</code>
+                                                    <code>{{ code }}</code>
                                                 </div>
                                             </div>
                                         </div>
@@ -167,14 +116,14 @@
                                 </div>
 
                                 <div class="mt-2">
-                                    <span class="text-muted">{{ $t("Recovery Codes") }}: {{ recoveryCodesCount }} {{ $t("remaining") }}</span>
+                                    <span class="form-text">{{ $t("Recovery Codes") }}: {{ recoveryCodesCount }} {{ $t("remaining") }}</span>
                                 </div>
                             </div>
 
                             <!-- Disable 2FA Section -->
                             <div class="mb-3">
                                 <h6 class="mb-3 text-danger">{{ $t("Disable 2FA") }}</h6>
-                                <p class="text-muted">{{ $t("Disabling 2FA will remove the extra layer of security from your account.") }}</p>
+                                <p class="form-text">{{ $t("Disabling 2FA will remove the extra layer of security from your account.") }}</p>
                                 <button class="btn btn-outline-danger btn-sm" @click="confirmDisableTwoFA()">
                                     {{ $t("Disable 2FA") }}
                                 </button>
@@ -230,15 +179,9 @@ export default {
             twoFAStatus: null,
             token: null,
             showURI: false,
-            currentMethod: "totp",
-            originalMethod: "totp",
-            smsPhone: "",
-            smsPhoneInput: "",
-            switchingMethod: false,
             showRecoveryCodes: false,
             displayedRecoveryCodes: [],
             recoveryCodesCount: 0,
-            testSMSSent: false,
         };
     },
     mounted() {
@@ -261,17 +204,12 @@ export default {
             this.showURI = false;
             this.showRecoveryCodes = false;
             this.displayedRecoveryCodes = [];
-            this.testSMSSent = false;
         },
 
         getStatus() {
             this.$root.getSocket().emit("twoFAStatus", (res) => {
                 if (res.ok) {
                     this.twoFAStatus = res.status;
-                    this.currentMethod = res.method || "totp";
-                    this.originalMethod = res.method || "totp";
-                    this.smsPhone = res.phone || "";
-                    this.smsPhoneInput = res.phone || "";
                     this.recoveryCodesCount = res.recoveryCodesCount || 0;
                 } else {
                     toast.error(res.msg);
@@ -346,44 +284,6 @@ export default {
                     this.currentPassword = "";
                     this.modal.hide();
                     this.$emit("status-changed");
-                } else {
-                    toast.error(res.msg);
-                }
-            });
-        },
-
-        setupSMS() {
-            this.$root.getSocket().emit("setupSMS2FA", this.smsPhoneInput, this.currentPassword, (res) => {
-                if (res.ok) {
-                    this.$root.toastRes(res);
-                    this.smsPhone = this.smsPhoneInput;
-                } else {
-                    toast.error(res.msg);
-                }
-            });
-        },
-
-        switchMethod() {
-            this.switchingMethod = true;
-            this.$root.getSocket().emit("switch2FAMethod", this.currentMethod, this.currentPassword, (res) => {
-                this.switchingMethod = false;
-                if (res.ok) {
-                    this.$root.toastRes(res);
-                    this.originalMethod = this.currentMethod;
-                    this.getStatus();
-                } else {
-                    toast.error(res.msg);
-                    this.currentMethod = this.originalMethod;
-                }
-            });
-        },
-
-        sendTestSMS() {
-            this.testSMSSent = false;
-            this.$root.getSocket().emit("requestSMSCode", this.currentPassword, (res) => {
-                if (res.ok) {
-                    this.testSMSSent = true;
-                    setTimeout(() => { this.testSMSSent = false; }, 5000);
                 } else {
                     toast.error(res.msg);
                 }

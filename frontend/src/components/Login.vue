@@ -22,13 +22,8 @@
                     <div class="text-center mb-3">
                         <i class="fas fa-shield-alt fa-2x text-primary"></i>
                         <h5 class="mt-2">{{ $t("Two Factor Authentication") }}</h5>
-                        <p class="text-muted small">
-                            <template v-if="twoFAMethod === 'totp'">
-                                {{ $t("Enter the verification code from your authenticator app.") }}
-                            </template>
-                            <template v-else-if="twoFAMethod === 'sms'">
-                                {{ $t("Enter the verification code sent to your phone.") }}
-                            </template>
+                        <p class="form-text">
+                            {{ $t("Enter the verification code from your authenticator app.") }}
                         </p>
                     </div>
 
@@ -36,7 +31,7 @@
                     <ul class="nav nav-tabs mb-3">
                         <li class="nav-item">
                             <button class="nav-link" :class="{ active: !useRecoveryCode }" @click="useRecoveryCode = false">
-                                <i class="fas fa-key me-1"></i> {{ twoFAMethod === 'sms' ? $t('SMS Code') : $t('Authenticator Code') }}
+                                <i class="fas fa-key me-1"></i> {{ $t("Authenticator Code") }}
                             </button>
                         </li>
                         <li class="nav-item">
@@ -50,18 +45,7 @@
                     <div v-if="!useRecoveryCode">
                         <div class="form-floating mt-3">
                             <input id="otp" v-model="token" type="text" maxlength="6" class="form-control" placeholder="123456" autocomplete="one-time-code" required>
-                            <label for="otp">{{ twoFAMethod === 'sms' ? $t('SMS Code') : $t('Token') }}</label>
-                        </div>
-                        <div v-if="twoFAMethod === 'sms'" class="mt-2 text-center">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="smsCooldown > 0" @click="requestSMSCode">
-                                <i class="fas fa-paper-plane me-1"></i>
-                                <template v-if="smsCooldown > 0">
-                                    {{ $t("Resend in") }} {{ smsCooldown }}s
-                                </template>
-                                <template v-else>
-                                    {{ $t("Send Code") }}
-                                </template>
-                            </button>
+                            <label for="otp">{{ $t("Token") }}</label>
                         </div>
                     </div>
 
@@ -126,10 +110,7 @@ export default {
             recoveryCode: "",
             res: null,
             tokenRequired: false,
-            twoFAMethod: "totp",
             useRecoveryCode: false,
-            smsCooldown: 0,
-            smsCooldownTimer: null,
         };
     },
 
@@ -139,9 +120,6 @@ export default {
 
     unmounted() {
         document.title = document.title.replace(" - Login", "");
-        if (this.smsCooldownTimer) {
-            clearInterval(this.smsCooldownTimer);
-        }
     },
 
     methods: {
@@ -154,7 +132,6 @@ export default {
 
                 if (res.tokenRequired) {
                     this.tokenRequired = true;
-                    this.twoFAMethod = res.method || "totp";
                 } else {
                     this.res = res;
                 }
@@ -168,28 +145,13 @@ export default {
             this.useRecoveryCode = false;
             this.res = null;
         },
-
-        requestSMSCode() {
-            this.$root.getSocket().emit("requestLoginSMSCode", (res) => {
-                if (res.ok) {
-                    this.smsCooldown = 60;
-                    this.smsCooldownTimer = setInterval(() => {
-                        this.smsCooldown--;
-                        if (this.smsCooldown <= 0) {
-                            clearInterval(this.smsCooldownTimer);
-                            this.smsCooldownTimer = null;
-                        }
-                    }, 1000);
-                } else {
-                    this.res = res;
-                }
-            });
-        },
     },
 };
 </script>
 
 <style lang="scss" scoped>
+@import "../styles/vars.scss";
+
 .form-container {
     display: flex;
     align-items: center;
@@ -216,20 +178,26 @@ export default {
 }
 
 .nav-tabs {
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid $dark-border-color;
 
     .nav-link {
-        color: #6c757d;
+        color: $dark-font-color3;
         font-size: 0.875rem;
         padding: 0.5rem 1rem;
         cursor: pointer;
         border: none;
 
         &.active {
-            color: #0d6efd;
-            border-bottom: 2px solid #0d6efd;
+            color: $primary;
+            border-bottom: 2px solid $primary;
             background: none;
         }
+    }
+}
+
+.dark {
+    .form-text {
+        color: $dark-font-color;
     }
 }
 </style>

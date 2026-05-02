@@ -27,9 +27,6 @@ import {
     decryptSecret,
     generateRecoveryCodes,
     hashRecoveryCodes,
-    generateVerificationCode,
-    getVerificationCodeExpiry,
-    isVerificationCodeExpired,
     isAccountLocked,
     incrementFailedAttempts,
     resetFailedAttempts,
@@ -186,12 +183,10 @@ export class MainSocketHandler extends SocketHandler {
                     if (!data.token && !data.recoveryCode) {
                         log.info("auth", `2FA token required for user ${data.username}. IP=${clientIP}`);
 
-                        let method = user.twofa_method || "totp";
                         socket.pending2FAUserID = user.id;
 
                         callback({
                             tokenRequired: true,
-                            method: method,
                         });
                         return;
                     }
@@ -243,70 +238,35 @@ export class MainSocketHandler extends SocketHandler {
                             return;
                         }
 
-                        const method = user.twofa_method || "totp";
-
-                        if (method === "totp") {
-                            const isValid = verifyTOTP(data.token, secret);
-                            if (isValid && user.twofa_last_token !== data.token) {
-                                await resetFailedAttempts(user.id);
-                                await R.exec("UPDATE `user` SET twofa_last_token = ? WHERE id = ? ", [
-                                    data.token,
-                                    user.id,
-                                ]);
-                                server.afterLogin(socket, user);
-                                log.info("auth", `Successfully logged in user ${data.username}. IP=${clientIP}`);
-                                callback({
-                                    ok: true,
-                                    token: User.createJWT(user, server.jwtSecret),
-                                });
-                            } else if (user.twofa_last_token === data.token) {
-                                log.warn("auth", `Replayed 2FA token for user ${data.username}. IP=${clientIP}`);
-                                callback({
-                                    ok: false,
-                                    msg: "2faTokenReplayed",
-                                    msgi18n: true,
-                                });
-                            } else {
-                                const attempts = await incrementFailedAttempts(user.id);
-                                log.warn("auth", `Invalid 2FA token for user ${data.username} (attempt ${attempts}). IP=${clientIP}`);
-                                callback({
-                                    ok: false,
-                                    msg: "authInvalidToken",
-                                    msgi18n: true,
-                                    attemptsRemaining: getMaxFailedAttempts() - attempts,
-                                });
-                            }
-                        } else if (method === "sms") {
-                            if (isVerificationCodeExpired(user.twofa_verification_code_expires)) {
-                                callback({
-                                    ok: false,
-                                    msg: "2faVerificationCodeExpired",
-                                    msgi18n: true,
-                                });
-                                return;
-                            }
-                            if (data.token === user.twofa_verification_code) {
-                                await resetFailedAttempts(user.id);
-                                await R.exec("UPDATE `user` SET twofa_last_token = ?, twofa_verification_code = NULL, twofa_verification_code_expires = NULL WHERE id = ? ", [
-                                    data.token,
-                                    user.id,
-                                ]);
-                                server.afterLogin(socket, user);
-                                log.info("auth", `Successfully logged in user ${data.username} via SMS code. IP=${clientIP}`);
-                                callback({
-                                    ok: true,
-                                    token: User.createJWT(user, server.jwtSecret),
-                                });
-                            } else {
-                                const attempts = await incrementFailedAttempts(user.id);
-                                log.warn("auth", `Invalid SMS verification code for user ${data.username} (attempt ${attempts}). IP=${clientIP}`);
-                                callback({
-                                    ok: false,
-                                    msg: "2faInvalidVerificationCode",
-                                    msgi18n: true,
-                                    attemptsRemaining: getMaxFailedAttempts() - attempts,
-                                });
-                            }
+                        const isValid = verifyTOTP(data.token, secret);
+                        if (isValid && user.twofa_last_token !== data.token) {
+                            await resetFailedAttempts(user.id);
+                            await R.exec("UPDATE `user` SET twofa_last_token = ? WHERE id = ? ", [
+                                data.token,
+                                user.id,
+                            ]);
+                            server.afterLogin(socket, user);
+                            log.info("auth", `Successfully logged in user ${data.username}. IP=${clientIP}`);
+                            callback({
+                                ok: true,
+                                token: User.createJWT(user, server.jwtSecret),
+                            });
+                        } else if (user.twofa_last_token === data.token) {
+                            log.warn("auth", `Replayed 2FA token for user ${data.username}. IP=${clientIP}`);
+                            callback({
+                                ok: false,
+                                msg: "2faTokenReplayed",
+                                msgi18n: true,
+                            });
+                        } else {
+                            const attempts = await incrementFailedAttempts(user.id);
+                            log.warn("auth", `Invalid 2FA token for user ${data.username} (attempt ${attempts}). IP=${clientIP}`);
+                            callback({
+                                ok: false,
+                                msg: "authInvalidToken",
+                                msgi18n: true,
+                                attemptsRemaining: getMaxFailedAttempts() - attempts,
+                            });
                         }
                     }
                 }
@@ -460,15 +420,13 @@ export class MainSocketHandler extends SocketHandler {
         socket.on("twoFAStatus", async (callback) => {
             try {
                 checkLogin(socket);
-                const user = await R.findOne("user", " id = ? ", [ socket.userID ]) as User;
+                const user = await R.findOne("user", " id = ? ", [socket.userID]) as User;
                 if (!user) {
                     throw new Error("User not found");
                 }
                 callback({
                     ok: true,
                     status: user.twofa_status === 1,
-                    method: user.twofa_method || "totp",
-                    phone: user.twofa_phone || "",
                     recoveryCodesCount: getRecoveryCodesCount(user.twofa_recovery_codes),
                 });
             } catch (e) {
@@ -588,7 +546,7 @@ export class MainSocketHandler extends SocketHandler {
 
                 const user = await doubleCheckPassword(socket, currentPassword);
 
-                await R.exec("UPDATE `user` SET twofa_status = 0, twofa_secret = NULL, twofa_method = 'totp', twofa_phone = NULL, twofa_recovery_codes = NULL, twofa_last_token = NULL, twofa_failed_attempts = 0, twofa_locked_until = NULL, twofa_verification_code = NULL, twofa_verification_code_expires = NULL, twofa_secret_set_at = NULL WHERE id = ? ", [
+                await R.exec("UPDATE `user` SET twofa_status = 0, twofa_secret = NULL, twofa_method = 'totp', twofa_recovery_codes = NULL, twofa_last_token = NULL, twofa_failed_attempts = 0, twofa_locked_until = NULL, twofa_secret_set_at = NULL WHERE id = ? ", [
                     user.id,
                 ]);
 
@@ -632,162 +590,6 @@ export class MainSocketHandler extends SocketHandler {
                 callback({
                     ok: true,
                     recoveryCodes: recoveryCodes,
-                });
-            } catch (e) {
-                if (e instanceof Error) {
-                    callback({
-                        ok: false,
-                        msg: e.message,
-                    });
-                }
-            }
-        });
-
-        socket.on("requestSMSCode", async (currentPassword, callback) => {
-            try {
-                checkLogin(socket);
-
-                const user = await doubleCheckPassword(socket, currentPassword);
-
-                if (user.twofa_status !== 1) {
-                    throw new Error("2FA is not enabled");
-                }
-
-                const code = generateVerificationCode();
-                const expires = getVerificationCodeExpiry();
-
-                await R.exec("UPDATE `user` SET twofa_verification_code = ?, twofa_verification_code_expires = ? WHERE id = ? ", [
-                    code,
-                    expires.toISOString(),
-                    user.id,
-                ]);
-
-                log.info("2fa", `SMS verification code generated for user ${user.username}. Code: ${code}`);
-                log.info("2fa", `[SMS to ${user.twofa_phone || "N/A"}] Your Dockge verification code is: ${code}. Valid for ${5} minutes.`);
-
-                callback({
-                    ok: true,
-                    msg: "2faSMSCodeSent",
-                    msgi18n: true,
-                });
-            } catch (e) {
-                if (e instanceof Error) {
-                    callback({
-                        ok: false,
-                        msg: e.message,
-                    });
-                }
-            }
-        });
-
-        socket.on("setupSMS2FA", async (phone, currentPassword, callback) => {
-            try {
-                checkLogin(socket);
-
-                if (!phone || typeof phone !== "string") {
-                    throw new Error("Phone number is required");
-                }
-
-                const user = await doubleCheckPassword(socket, currentPassword);
-
-                if (user.twofa_status !== 1) {
-                    throw new Error("Please enable TOTP 2FA first before adding SMS as a backup method");
-                }
-
-                await R.exec("UPDATE `user` SET twofa_phone = ? WHERE id = ? ", [
-                    phone,
-                    user.id,
-                ]);
-
-                log.info("2fa", `Set SMS phone number for user ${user.username}`);
-
-                callback({
-                    ok: true,
-                    msg: "2faSMSSetup",
-                    msgi18n: true,
-                });
-            } catch (e) {
-                if (e instanceof Error) {
-                    callback({
-                        ok: false,
-                        msg: e.message,
-                    });
-                }
-            }
-        });
-
-        socket.on("switch2FAMethod", async (method, currentPassword, callback) => {
-            try {
-                checkLogin(socket);
-
-                if (![ "totp", "sms" ].includes(method)) {
-                    throw new Error("Invalid 2FA method");
-                }
-
-                const user = await doubleCheckPassword(socket, currentPassword);
-
-                if (user.twofa_status !== 1) {
-                    throw new Error("2FA is not enabled");
-                }
-
-                if (method === "sms" && !user.twofa_phone) {
-                    throw new Error("Phone number is required for SMS 2FA. Please set up SMS first.");
-                }
-
-                await R.exec("UPDATE `user` SET twofa_method = ? WHERE id = ? ", [
-                    method,
-                    user.id,
-                ]);
-
-                log.info("2fa", `Switched 2FA method to ${method} for user ${user.username}`);
-
-                callback({
-                    ok: true,
-                    msg: "2faMethodSwitched",
-                    msgi18n: true,
-                });
-            } catch (e) {
-                if (e instanceof Error) {
-                    callback({
-                        ok: false,
-                        msg: e.message,
-                    });
-                }
-            }
-        });
-
-        socket.on("requestLoginSMSCode", async (callback) => {
-            try {
-                const userId = socket.pending2FAUserID || socket.userID;
-                if (!userId) {
-                    throw new Error("Please log in with username and password first");
-                }
-
-                const user = await R.findOne("user", " id = ? AND active = 1 ", [ userId ]) as User;
-                if (!user || user.twofa_status !== 1) {
-                    throw new Error("2FA is not enabled");
-                }
-
-                if (!user.twofa_phone) {
-                    throw new Error("Phone number is not set");
-                }
-
-                const code = generateVerificationCode();
-                const expires = getVerificationCodeExpiry();
-
-                await R.exec("UPDATE `user` SET twofa_verification_code = ?, twofa_verification_code_expires = ? WHERE id = ? ", [
-                    code,
-                    expires.toISOString(),
-                    user.id,
-                ]);
-
-                log.info("2fa", `Login SMS code generated for user ${user.username}. Code: ${code}`);
-                log.info("2fa", `[SMS to ${user.twofa_phone}] Your Dockge verification code is: ${code}. Valid for ${5} minutes.`);
-
-                callback({
-                    ok: true,
-                    msg: "2faSMSCodeSent",
-                    msgi18n: true,
                 });
             } catch (e) {
                 if (e instanceof Error) {
