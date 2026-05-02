@@ -15,6 +15,7 @@ export interface JWTDecoded {
 
 export interface DockgeSocket extends Socket {
     userID: number;
+    pending2FAUserID?: number;
     consoleTerminal? : Terminal;
     instanceManager : AgentManager;
     endpoint : string;

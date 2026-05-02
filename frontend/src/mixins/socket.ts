@@ -331,12 +331,19 @@ export default defineComponent({
          * @param {loginCB} callback Callback to call with result
          * @returns {void}
          */
-        login(username : string, password : string, token : string, callback) {
-            this.getSocket().emit("login", {
+        login(username : string, password : string, token : string, recoveryCode : string, useRecoveryCode : boolean, callback) {
+            const loginData : Record<string, unknown> = {
                 username,
                 password,
-                token,
-            }, (res) => {
+            };
+
+            if (useRecoveryCode && recoveryCode) {
+                loginData.recoveryCode = recoveryCode;
+            } else if (token) {
+                loginData.token = token;
+            }
+
+            this.getSocket().emit("login", loginData, (res) => {
                 if (res.tokenRequired) {
                     callback(res);
                 }
@@ -349,7 +356,6 @@ export default defineComponent({
 
                     this.afterLogin();
 
-                    // Trigger Chrome Save Password
                     history.pushState({}, "");
                 }
 

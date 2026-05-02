@@ -329,6 +329,7 @@ export class DockgeServer {
 
     async afterLogin(socket : DockgeSocket, user : User) {
         socket.userID = user.id;
+        socket.pending2FAUserID = undefined;
         socket.join(user.id.toString());
 
         this.sendInfo(socket);

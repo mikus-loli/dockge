@@ -64,19 +64,58 @@
                 </form>
             </template>
 
-            <!-- TODO: Hidden for now -->
-            <div v-if="! settings.disableAuth && false" class="mt-5 mb-3">
+            <!-- Two Factor Authentication -->
+            <div v-if="! settings.disableAuth" class="mt-5 mb-3">
                 <h5 class="my-4 settings-subheading">
                     {{ $t("Two Factor Authentication") }}
                 </h5>
-                <div class="mb-4">
-                    <button
-                        class="btn btn-primary me-2"
-                        type="button"
-                        @click="$refs.TwoFADialog.show()"
-                    >
-                        {{ $t("2FA Settings") }}
-                    </button>
+
+                <div v-if="twoFAStatus === null" class="mb-3">
+                    <div class="spinner-border spinner-border-sm me-1"></div>
+                    {{ $t("Loading...") }}
+                </div>
+
+                <div v-else class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <span v-if="twoFAStatus" class="badge bg-success me-2">{{ $t("Active") }}</span>
+                        <span v-else class="badge bg-secondary me-2">{{ $t("Inactive") }}</span>
+                        <span v-if="twoFAStatus && twoFAMethod" class="text-muted">
+                            ({{ twoFAMethod === 'totp' ? $t('Authenticator App') : $t('SMS Verification') }})
+                        </span>
+                    </div>
+
+                    <div v-if="twoFAStatus" class="mb-3">
+                        <button class="btn btn-primary me-2 mb-2" type="button" @click="$refs.TwoFADialog.show()">
+                            {{ $t("2FA Settings") }}
+                        </button>
+                        <button class="btn btn-outline-danger me-2 mb-2" type="button" @click="confirmDisable2FA">
+                            {{ $t("Disable 2FA") }}
+                        </button>
+                    </div>
+
+                    <div v-if="!twoFAStatus">
+                        <div class="alert alert-info mb-3">
+                            <strong>{{ $t("2FA Setup Guide") }}</strong>
+                            <ol class="mb-0 mt-2">
+                                <li>{{ $t("2FA Step 1 - Click enable button below") }}</li>
+                                <li>{{ $t("2FA Step 2 - Scan QR code with authenticator app") }}</li>
+                                <li>{{ $t("2FA Step 3 - Enter the verification code to confirm") }}</li>
+                                <li>{{ $t("2FA Step 4 - Save your recovery codes in a safe place") }}</li>
+                            </ol>
+                        </div>
+                        <button class="btn btn-primary me-2 mb-2" type="button" @click="$refs.TwoFADialog.show()">
+                            {{ $t("Enable 2FA") }}
+                        </button>
+                    </div>
+
+                    <div v-if="twoFAStatus && recoveryCodesCount !== null" class="mt-3">
+                        <p class="text-muted">
+                            {{ $t("Recovery Codes") }}: {{ recoveryCodesCount }} {{ $t("remaining") }}
+                            <span v-if="recoveryCodesCount <= 2" class="text-warning ms-1">
+                                ({{ $t("Low recovery codes, please regenerate") }})
+                            </span>
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -91,7 +130,7 @@
             </div>
         </div>
 
-        <TwoFADialog ref="TwoFADialog" />
+        <TwoFADialog ref="TwoFADialog" @status-changed="fetch2FAStatus" />
 
         <Confirm ref="confirmDisableAuth" btn-style="btn-danger" :yes-text="$t('I understand, please disable')" :no-text="$t('Leave')" @yes="disableAuth">
             <i18n-t keypath="disableauth.message1" tag="p">
@@ -121,12 +160,30 @@
                 />
             </div>
         </Confirm>
+
+        <Confirm ref="confirmDisable2FA" btn-style="btn-danger" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="disable2FA">
+            <p>{{ $t("confirmDisableTwoFAMsg") }}</p>
+            <div class="mb-3">
+                <label for="disable-2fa-password" class="form-label">
+                    {{ $t("Current Password") }}
+                </label>
+                <input
+                    id="disable-2fa-password"
+                    v-model="disable2FAPassword"
+                    type="password"
+                    class="form-control"
+                    required
+                />
+            </div>
+        </Confirm>
     </div>
 </template>
 
 <script>
 import Confirm from "../../components/Confirm.vue";
 import TwoFADialog from "../../components/TwoFADialog.vue";
+import { useToast } from "vue-toastification";
+const toast = useToast();
 
 export default {
     components: {
@@ -141,7 +198,11 @@ export default {
                 currentPassword: "",
                 newPassword: "",
                 repeatNewPassword: "",
-            }
+            },
+            twoFAStatus: null,
+            twoFAMethod: null,
+            recoveryCodesCount: null,
+            disable2FAPassword: "",
         };
     },
 
@@ -163,8 +224,23 @@ export default {
         },
     },
 
+    mounted() {
+        this.fetch2FAStatus();
+    },
+
     methods: {
-        /** Check new passwords match before saving them */
+        fetch2FAStatus() {
+            this.$root.getSocket().emit("twoFAStatus", (res) => {
+                if (res.ok) {
+                    this.twoFAStatus = res.status;
+                    this.twoFAMethod = res.method;
+                    this.recoveryCodesCount = res.recoveryCodesCount;
+                } else {
+                    toast.error(res.msg);
+                }
+            });
+        },
+
         savePassword() {
             if (this.password.newPassword !== this.password.repeatNewPassword) {
                 this.invalidPassword = true;
@@ -182,12 +258,26 @@ export default {
             }
         },
 
-        /** Disable authentication for web app access */
+        confirmDisable2FA() {
+            this.disable2FAPassword = "";
+            this.$refs.confirmDisable2FA.show();
+        },
+
+        disable2FA() {
+            this.$root.getSocket().emit("disable2FA", this.disable2FAPassword, (res) => {
+                if (res.ok) {
+                    this.$root.toastRes(res);
+                    this.fetch2FAStatus();
+                    this.disable2FAPassword = "";
+                } else {
+                    toast.error(res.msg);
+                }
+            });
+        },
+
         disableAuth() {
             this.settings.disableAuth = true;
 
-            // Need current password to disable auth
-            // Set it to empty if done
             this.saveSettings(() => {
                 this.password.currentPassword = "";
                 this.$root.username = null;
@@ -195,7 +285,6 @@ export default {
             }, this.password.currentPassword);
         },
 
-        /** Enable authentication for web app access */
         enableAuth() {
             this.settings.disableAuth = false;
             this.saveSettings();
@@ -203,7 +292,6 @@ export default {
             location.reload();
         },
 
-        /** Show confirmation dialog for disable auth */
         confirmDisableAuth() {
             this.$refs.confirmDisableAuth.show();
         },
