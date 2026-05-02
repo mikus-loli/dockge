@@ -71,7 +71,10 @@ export function verifyTOTP(token: string, secretBase32: string): boolean {
             period: 30,
             secret: OTPAuth.Secret.fromBase32(secretBase32),
         });
-        const delta = totp.validate({ token, window: 1 });
+        const delta = totp.validate({
+            token,
+            window: 1,
+        });
         return delta !== null;
     } catch (e) {
         log.error("2fa", "TOTP verification error: " + (e instanceof Error ? e.message : String(e)));
@@ -107,7 +110,9 @@ export function verifyRecoveryCode(code: string, hashedCodes: string[]): boolean
 }
 
 export function isAccountLocked(lockedUntil: Date | string | null): boolean {
-    if (!lockedUntil) return false;
+    if (!lockedUntil) {
+        return false;
+    }
     const lockTime = new Date(lockedUntil);
     return new Date() < lockTime;
 }
@@ -129,15 +134,15 @@ export function getLockoutDurationMinutes(): number {
 export async function incrementFailedAttempts(userId: number): Promise<number> {
     await R.exec(
         "UPDATE `user` SET twofa_failed_attempts = twofa_failed_attempts + 1 WHERE id = ?",
-        [userId]
+        [ userId ]
     );
-    const user = await R.findOne("user", " id = ? ", [userId]);
+    const user = await R.findOne("user", " id = ? ", [ userId ]);
     const attempts = user?.twofa_failed_attempts ?? 0;
     if (attempts >= MAX_FAILED_ATTEMPTS) {
         const lockedUntil = getLockoutExpiry();
         await R.exec(
             "UPDATE `user` SET twofa_locked_until = ? WHERE id = ?",
-            [lockedUntil.toISOString(), userId]
+            [ lockedUntil.toISOString(), userId ]
         );
     }
     return attempts;
@@ -146,12 +151,12 @@ export async function incrementFailedAttempts(userId: number): Promise<number> {
 export async function resetFailedAttempts(userId: number): Promise<void> {
     await R.exec(
         "UPDATE `user` SET twofa_failed_attempts = 0, twofa_locked_until = NULL WHERE id = ?",
-        [userId]
+        [ userId ]
     );
 }
 
 export async function consumeRecoveryCode(userId: number, code: string): Promise<boolean> {
-    const user = await R.findOne("user", " id = ? ", [userId]);
+    const user = await R.findOne("user", " id = ? ", [ userId ]);
     if (!user || !user.twofa_recovery_codes) {
         return false;
     }
@@ -164,13 +169,15 @@ export async function consumeRecoveryCode(userId: number, code: string): Promise
     hashedCodes.splice(index, 1);
     await R.exec(
         "UPDATE `user` SET twofa_recovery_codes = ? WHERE id = ?",
-        [JSON.stringify(hashedCodes), userId]
+        [ JSON.stringify(hashedCodes), userId ]
     );
     return true;
 }
 
 export function getRecoveryCodesCount(hashedCodesJson: string | null): number {
-    if (!hashedCodesJson) return 0;
+    if (!hashedCodesJson) {
+        return 0;
+    }
     try {
         const codes: string[] = JSON.parse(hashedCodesJson);
         return codes.length;
