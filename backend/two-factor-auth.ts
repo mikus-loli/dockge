@@ -19,10 +19,6 @@ function getEncryptionKey(jwtSecret: string): Buffer {
     return encryptionKey;
 }
 
-export function resetEncryptionKey(): void {
-    encryptionKey = null;
-}
-
 export function encryptSecret(secret: string, jwtSecret: string): string {
     const key = getEncryptionKey(jwtSecret);
     const iv = randomBytes(16);
@@ -102,11 +98,6 @@ export function hashRecoveryCode(code: string): string {
 
 export function hashRecoveryCodes(codes: string[]): string[] {
     return codes.map(code => hashRecoveryCode(code));
-}
-
-export function verifyRecoveryCode(code: string, hashedCodes: string[]): boolean {
-    const hashedInput = hashRecoveryCode(code);
-    return hashedCodes.includes(hashedInput);
 }
 
 export function isAccountLocked(lockedUntil: Date | string | null): boolean {
