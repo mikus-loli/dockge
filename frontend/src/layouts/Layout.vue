@@ -184,7 +184,7 @@ export default {
         height: 100%;
         padding: 8px 10px 0;
         font-size: 13px;
-        color: #c1c1c1;
+        color: $text-muted;
         overflow: hidden;
         text-decoration: none;
 

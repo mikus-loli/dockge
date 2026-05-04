@@ -227,7 +227,7 @@ footer {
 .settings-content {
     .settings-content-header {
         width: calc(100% + 20px);
-        border-bottom: 1px solid #dee2e6;
+        border-bottom: 1px solid $border-light;
         border-radius: 0 10px 0 0;
         margin-top: -20px;
         margin-right: -20px;

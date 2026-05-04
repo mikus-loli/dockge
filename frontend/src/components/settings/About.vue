@@ -46,6 +46,8 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "../../styles/vars.scss";
+
 .logo {
     margin: 4em 1em;
 }
@@ -56,10 +58,10 @@ export default {
 
 .frontend-version {
     font-size: 0.9em;
-    color: #cccccc;
+    color: $text-muted;
 
     .dark & {
-        color: #333333;
+        color: $dark-font-color;
     }
 }
 

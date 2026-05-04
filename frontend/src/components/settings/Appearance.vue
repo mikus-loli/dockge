@@ -78,10 +78,10 @@ export default {
 .btn-check:active + .btn-outline-primary,
 .btn-check:checked + .btn-outline-primary,
 .btn-check:hover + .btn-outline-primary {
-    color: #fff;
+    color: $dark-font-color2;
 
     .dark & {
-        color: #000;
+        color: white;
     }
 }
 

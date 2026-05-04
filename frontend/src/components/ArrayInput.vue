@@ -141,7 +141,7 @@ export default {
             outline: none;
 
             &::placeholder {
-                color: #1d2634;
+                color: $dark-border-color;
             }
         }
     }

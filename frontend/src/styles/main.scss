@@ -36,6 +36,10 @@ textarea.form-control {
 }
 
 ::placeholder {
+    color: $text-muted;
+}
+
+.dark ::placeholder {
     color: $dark-font-color3;
 }
 
@@ -119,17 +123,13 @@ optgroup {
 }
 
 .btn-primary {
-    color: white;
+    color: $dark-font-color2;
     background: $primary-gradient;
 
     &:hover, &:active, &:focus, &.active {
-        color: white;
+        color: $dark-font-color2;
         background: $primary-gradient-active;
         border-color: $highlight;
-    }
-
-    .dark & {
-        color: $dark-font-color2;
     }
 }
 
@@ -140,25 +140,25 @@ optgroup {
     border-color: $bg-color;
 
     &:hover {
-        $hover-color: darken($bg-color, 3%);
+        $hover-color: darken($bg-color, 7%);
         background-color: $hover-color;
         border-color: $hover-color;
     }
 }
 
 .btn-warning {
-    color: white;
+    color: #1a1a1a;
 
     &:hover, &:active, &:focus, &.active {
-        color: white;
+        color: #1a1a1a;
     }
 }
 
 .btn-info {
-    color: white;
+    color: #1a1a1a;
 
     &:hover, &:active, &:focus, &.active {
-        color: white;
+        color: #1a1a1a;
     }
 }
 
@@ -277,7 +277,7 @@ optgroup {
         color: $dark-font-color;
 
         &.btn-info {
-            color: white;
+            color: $dark-font-color2;
         }
     }
 
@@ -301,6 +301,11 @@ optgroup {
 
     .form-control, .form-select {
         border-color: $dark-border-color;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: $primary;
+        box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
     }
 
     .form-control:disabled, .form-control[readonly] {
@@ -339,7 +344,7 @@ optgroup {
         border-color: $bg-color;
 
         &:hover {
-            $hover-color: darken($bg-color, 3%);
+            $hover-color: darken($bg-color, 7%);
             background-color: $hover-color;
             border-color: $hover-color;
         }
@@ -519,9 +524,9 @@ optgroup {
 }
 
 .alert-success {
-    color: #122f21;
-    background-color: $primary;
-    border-color: $primary;
+    color: #0f5132;
+    background-color: #d1e7dd;
+    border-color: #badbcc;
 }
 
 .alert-info {
@@ -538,8 +543,8 @@ optgroup {
 
 .btn-success {
     color: #fff;
-    background-color: #4caf50;
-    border-color: #4caf50;
+    background-color: #2e7d32;
+    border-color: #2e7d32;
 }
 
 
@@ -670,6 +675,10 @@ code {
 }
 
 .form-text {
+    color: $text-muted;
+}
+
+.dark .form-text {
     color: $dark-font-color3;
 }
 

@@ -389,9 +389,9 @@ export default defineComponent({
 .container {
     .image {
         font-size: 0.8rem;
-        color: #6c757d;
+        color: $text-muted;
         .tag {
-            color: #33383b;
+            color: $dark-font-color2;
         }
     }
 

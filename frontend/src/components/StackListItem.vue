@@ -144,7 +144,7 @@ export default {
         background-color: $highlight-white;
     }
     &.active {
-        background-color: #cdf8f4;
+        background-color: $highlight-cyan;
     }
     .title {
         margin-top: -4px;
