@@ -422,6 +422,63 @@ optgroup {
             color: $dark-font-color2;
         }
     }
+
+    .alert-info {
+        color: #9ec5fe;
+        background-color: #031633;
+        border-color: #084298;
+    }
+
+    .alert-warning {
+        color: #ffda6a;
+        background-color: #332701;
+        border-color: #997404;
+    }
+
+    .alert-danger {
+        color: #ea868f;
+        background-color: #2c0b0e;
+        border-color: #842029;
+    }
+
+    .alert-secondary {
+        color: $dark-font-color;
+        background-color: $dark-bg2;
+        border-color: $dark-border-color;
+    }
+
+    .alert-success {
+        color: #75b798;
+        background-color: #051b11;
+        border-color: #0f5132;
+    }
+
+    .badge {
+        &.bg-warning {
+            color: $dark-font-color2;
+        }
+
+        &.bg-dark {
+            color: $dark-font-color;
+            background-color: $dark-header-bg;
+        }
+    }
+
+    .text-warning {
+        color: #ffda6a !important;
+    }
+
+    .text-success {
+        color: #75b798 !important;
+    }
+
+    .text-danger {
+        color: #ea868f !important;
+    }
+
+    .text-info {
+        color: #9ec5fe !important;
+    }
 }
 
 // Floating Label
