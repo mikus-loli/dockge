@@ -91,15 +91,13 @@
                     </div>
 
                     <div v-if="!twoFAStatus">
-                        <div class="alert alert-info mb-3">
-                            <strong>{{ $t("2FA Setup Guide") }}</strong>
-                            <ol class="mb-0 mt-2">
-                                <li>{{ $t("2FA Step 1 - Click enable button below") }}</li>
-                                <li>{{ $t("2FA Step 2 - Scan QR code with authenticator app") }}</li>
-                                <li>{{ $t("2FA Step 3 - Enter the verification code to confirm") }}</li>
-                                <li>{{ $t("2FA Step 4 - Save your recovery codes in a safe place") }}</li>
-                            </ol>
-                        </div>
+                        <strong>{{ $t("2FA Setup Guide") }}</strong>
+                        <ol class="mt-2 mb-3">
+                            <li>{{ $t("2FA Step 1 - Click enable button below") }}</li>
+                            <li>{{ $t("2FA Step 2 - Scan QR code with authenticator app") }}</li>
+                            <li>{{ $t("2FA Step 3 - Enter the verification code to confirm") }}</li>
+                            <li>{{ $t("2FA Step 4 - Save your recovery codes in a safe place") }}</li>
+                        </ol>
                         <button class="btn btn-primary me-2 mb-2" type="button" @click="$refs.TwoFADialog.show()">
                             {{ $t("Enable 2FA") }}
                         </button>
