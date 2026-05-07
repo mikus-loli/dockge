@@ -241,7 +241,7 @@
     "autoUpdateNotifRollbackFailed": "Rollback failed",
     "autoUpdateSettingsSaved": "Auto update settings saved.",
     "autoUpdateCheckInProgress": "A check is already in progress.",
-    "autoUpdateCheckStarted": "Update check started.",
+    "autoUpdateCheckCompleted": "Update check completed.",
     "autoUpdateInProgress": "Another update is in progress.",
     "autoUpdateExecuted": "Stack updated successfully.",
     "autoUpdateFailed": "Failed to update stack.",

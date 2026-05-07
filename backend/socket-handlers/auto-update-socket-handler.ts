@@ -46,13 +46,12 @@ export class AutoUpdateSocketHandler extends SocketHandler {
                     return;
                 }
 
-                autoUpdater.checkAllStacks().then(() => {
-                    callbackResult({
-                        ok: true,
-                        msg: "autoUpdateCheckStarted",
-                        msgi18n: true,
-                    }, callback);
-                });
+                await autoUpdater.checkAllStacks();
+                callbackResult({
+                    ok: true,
+                    msg: "autoUpdateCheckCompleted",
+                    msgi18n: true,
+                }, callback);
             } catch (e) {
                 callbackError(e, callback);
             }

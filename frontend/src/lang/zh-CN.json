@@ -221,7 +221,7 @@
     "autoUpdateNotifRollbackFailed": "回滚失败",
     "autoUpdateSettingsSaved": "自动更新设置已保存。",
     "autoUpdateCheckInProgress": "检查正在进行中。",
-    "autoUpdateCheckStarted": "更新检查已启动。",
+    "autoUpdateCheckCompleted": "更新检查已完成。",
     "autoUpdateInProgress": "另一个更新正在进行中。",
     "autoUpdateExecuted": "堆栈更新成功。",
     "autoUpdateFailed": "堆栈更新失败。",

@@ -45,18 +45,16 @@ export class AutoUpdater {
 
     async start() {
         const enabled = await Settings.get("autoUpdateEnabled");
-        if (!enabled) {
+        if (!enabled || enabled === "false") {
             log.info("auto-update", "Auto-update is disabled");
             return;
         }
 
-        const intervalMinutes = (await Settings.get("autoUpdateCheckInterval")) || 60;
+        const intervalMinutes = parseInt(await Settings.get("autoUpdateCheckInterval") as string) || 60;
         log.info("auto-update", `Starting auto-update checker, interval: ${intervalMinutes} minutes`);
 
-        await this.checkAllStacks();
-
         this.checkInterval = setInterval(async () => {
-            if (!this.isChecking) {
+            if (!this.isChecking && !this.isUpdating) {
                 await this.checkAllStacks();
             }
         }, intervalMinutes * 60 * 1000);
@@ -79,17 +77,23 @@ export class AutoUpdater {
         this.isChecking = true;
         try {
             const enabled = await Settings.get("autoUpdateEnabled");
-            if (!enabled) {
+            if (!enabled || enabled === "false") {
                 return;
             }
 
             log.info("auto-update", "Checking all stacks for image updates...");
 
+            const excludedStacks = await this.getExcludedStacks();
             const stackList = await Stack.getStackList(this.server, true);
             const results: UpdateCheckResult[] = [];
 
             for (const [name, stack] of stackList) {
                 if (!stack.isManagedByDockge) {
+                    continue;
+                }
+
+                if (excludedStacks.includes(name)) {
+                    log.debug("auto-update", `Skipping excluded stack: ${name}`);
                     continue;
                 }
 
@@ -114,8 +118,10 @@ export class AutoUpdater {
                             await this.sendNotification("update_available", name, imageList);
 
                             const autoDeploy = await Settings.get("autoUpdateAutoDeploy");
-                            if (autoDeploy) {
+                            if (autoDeploy && autoDeploy !== "false") {
+                                this.isChecking = false;
                                 await this.executeUpdate(name);
+                                this.isChecking = true;
                             }
                         }
                     }
@@ -278,7 +284,7 @@ export class AutoUpdater {
                 await this.sendNotification("update_failed", stackName, e.message);
 
                 const autoRollback = await Settings.get("autoUpdateAutoRollback");
-                if (autoRollback) {
+                if (autoRollback && autoRollback !== "false") {
                     log.info("auto-update", `Auto-rollback enabled, rolling back stack ${stackName}`);
                     await this.executeRollback(stackName);
                 }
@@ -441,23 +447,47 @@ export class AutoUpdater {
         }
     }
 
+    protected async getExcludedStacks(): Promise<string[]> {
+        try {
+            const val = await Settings.get("autoUpdateExcludedStacks");
+            if (!val) {
+                return [];
+            }
+            if (Array.isArray(val)) {
+                return val as string[];
+            }
+            if (typeof val === "string") {
+                try {
+                    const parsed = JSON.parse(val);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (e) {
+                    return [];
+                }
+            }
+            return [];
+        } catch (e) {
+            return [];
+        }
+    }
+
     async getUpdateStatus(): Promise<Record<string, unknown>> {
         const enabled = await Settings.get("autoUpdateEnabled") || false;
-        const checkInterval = await Settings.get("autoUpdateCheckInterval") || 60;
+        const checkInterval = parseInt(await Settings.get("autoUpdateCheckInterval") as string) || 60;
         const autoDeploy = await Settings.get("autoUpdateAutoDeploy") || false;
         const autoRollback = await Settings.get("autoUpdateAutoRollback") || false;
-        const logRetentionDays = await Settings.get("autoUpdateLogRetentionDays") || 30;
-        const excludedStacks = await Settings.get("autoUpdateExcludedStacks") || [];
-        const notifications = await Settings.get("autoUpdateNotifications") !== false;
+        const logRetentionDays = parseInt(await Settings.get("autoUpdateLogRetentionDays") as string) || 30;
+        const excludedStacks = await this.getExcludedStacks();
+        const notifications = await Settings.get("autoUpdateNotifications");
+        const notificationsEnabled = notifications !== false && notifications !== "false";
 
         return {
-            enabled,
+            enabled: enabled === true || enabled === "true",
             checkInterval,
-            autoDeploy,
-            autoRollback,
+            autoDeploy: autoDeploy === true || autoDeploy === "true",
+            autoRollback: autoRollback === true || autoRollback === "true",
             logRetentionDays,
             excludedStacks,
-            notifications,
+            notifications: notificationsEnabled,
             isChecking: this.isChecking,
             isUpdating: this.isUpdating,
         };
@@ -491,8 +521,8 @@ export class AutoUpdater {
 
     protected async sendNotification(type: string, stackName: string, detail?: string) {
         try {
-            const enabled = await Settings.get("autoUpdateNotifications") !== false;
-            if (!enabled) {
+            const enabled = await Settings.get("autoUpdateNotifications");
+            if (!enabled || enabled === "false") {
                 return;
             }
 
