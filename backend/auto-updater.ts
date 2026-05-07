@@ -493,26 +493,20 @@ export class AutoUpdater {
 
     async getUpdateLogs(stackName?: string, limit = 100): Promise<UpdateLogEntry[]> {
         try {
-            let logs;
+            let query = R.knex("update_log").orderBy("timestamp", "desc").limit(limit);
             if (stackName) {
-                logs = await R.find("update_log", " stackName = ? ORDER BY timestamp DESC LIMIT ? ", [
-                    stackName, limit,
-                ]);
-            } else {
-                logs = await R.find("update_log", " ORDER BY timestamp DESC LIMIT ? ", [
-                    limit,
-                ]);
+                query = query.where("stackName", stackName);
             }
-
-            return logs.map((bean: Record<string, unknown>) => ({
-                id: bean.id as number,
-                stackName: bean.stackName as string,
-                type: bean.type as UpdateLogEntry["type"],
-                status: bean.status as UpdateLogEntry["status"],
-                message: bean.message as string,
-                oldDigest: bean.oldDigest as string,
-                newDigest: bean.newDigest as string,
-                timestamp: bean.timestamp as string,
+            const rows = await query;
+            return rows.map((row: Record<string, unknown>) => ({
+                id: row.id as number,
+                stackName: row.stackName as string,
+                type: row.type as UpdateLogEntry["type"],
+                status: row.status as UpdateLogEntry["status"],
+                message: row.message as string,
+                oldDigest: (row.oldDigest as string) || "",
+                newDigest: (row.newDigest as string) || "",
+                timestamp: row.timestamp as string,
             }));
         } catch (e) {
             if (e instanceof Error) {
