@@ -64,16 +64,32 @@
 
             <div v-if="autoUpdateSettings.enabled && autoUpdateSettings.whitelistMode" class="mb-4">
                 <label class="form-label">{{ $t("autoUpdateWhitelist") }}</label>
-                <select v-model="autoUpdateSettings.whitelist" class="form-select" multiple size="6">
-                    <option v-for="stack in stackList" :key="stack" :value="stack">{{ stack }}</option>
+                <div class="stack-tag-area">
+                    <span v-for="stack in autoUpdateSettings.whitelist" :key="stack" class="stack-tag">
+                        {{ stack }}
+                        <button type="button" class="stack-tag-remove" @click="removeFromList('whitelist', stack)">&times;</button>
+                    </span>
+                    <span v-if="autoUpdateSettings.whitelist.length === 0" class="text-muted stack-tag-empty">{{ $t("autoUpdateNoStacksSelected") }}</span>
+                </div>
+                <select v-if="availableWhitelistStacks.length > 0" class="form-select form-select-sm stack-add-select" @change="addToList('whitelist', $event)">
+                    <option value="">{{ $t("autoUpdateAddStack") }}</option>
+                    <option v-for="stack in availableWhitelistStacks" :key="stack" :value="stack">{{ stack }}</option>
                 </select>
                 <div class="form-text">{{ $t("autoUpdateWhitelistDescription") }}</div>
             </div>
 
             <div v-if="autoUpdateSettings.enabled && !autoUpdateSettings.whitelistMode" class="mb-4">
                 <label class="form-label">{{ $t("autoUpdateExcludedStacks") }}</label>
-                <select v-model="autoUpdateSettings.excludedStacks" class="form-select" multiple size="6">
-                    <option v-for="stack in stackList" :key="stack" :value="stack">{{ stack }}</option>
+                <div class="stack-tag-area">
+                    <span v-for="stack in autoUpdateSettings.excludedStacks" :key="stack" class="stack-tag">
+                        {{ stack }}
+                        <button type="button" class="stack-tag-remove" @click="removeFromList('excludedStacks', stack)">&times;</button>
+                    </span>
+                    <span v-if="autoUpdateSettings.excludedStacks.length === 0" class="text-muted stack-tag-empty">{{ $t("autoUpdateNoStacksSelected") }}</span>
+                </div>
+                <select v-if="availableExcludedStacks.length > 0" class="form-select form-select-sm stack-add-select" @change="addToList('excludedStacks', $event)">
+                    <option value="">{{ $t("autoUpdateAddStack") }}</option>
+                    <option v-for="stack in availableExcludedStacks" :key="stack" :value="stack">{{ stack }}</option>
                 </select>
                 <div class="form-text">{{ $t("autoUpdateExcludedStacksDescription") }}</div>
             </div>
@@ -210,6 +226,12 @@ export default {
             }
             return [];
         },
+        availableWhitelistStacks() {
+            return this.stackList.filter(s => !this.autoUpdateSettings.whitelist.includes(s));
+        },
+        availableExcludedStacks() {
+            return this.stackList.filter(s => !this.autoUpdateSettings.excludedStacks.includes(s));
+        },
     },
 
     watch: {
@@ -236,6 +258,24 @@ export default {
     },
 
     methods: {
+        addToList(listKey, event) {
+            const value = event.target.value;
+            if (!value) return;
+            const list = this.autoUpdateSettings[listKey];
+            if (!list.includes(value)) {
+                list.push(value);
+            }
+            event.target.value = "";
+        },
+
+        removeFromList(listKey, stack) {
+            const list = this.autoUpdateSettings[listKey];
+            const idx = list.indexOf(stack);
+            if (idx !== -1) {
+                list.splice(idx, 1);
+            }
+        },
+
         loadStatus() {
             this.$root.getSocket().emit("autoUpdateGetStatus", (res) => {
                 if (res.ok) {
@@ -384,5 +424,61 @@ export default {
         padding: 0.4rem 0.6rem;
         vertical-align: middle;
     }
+}
+
+.stack-tag-area {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 32px;
+    padding: 6px 8px;
+    border: 1px solid $border-light;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    align-items: center;
+
+    .dark & {
+        border-color: $dark-border-color;
+        background-color: rgba(255, 255, 255, 0.03);
+    }
+}
+
+.stack-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    background-color: rgba($primary, 0.12);
+    color: $primary;
+    white-space: nowrap;
+
+    .dark & {
+        background-color: rgba($primary, 0.2);
+    }
+}
+
+.stack-tag-remove {
+    background: none;
+    border: none;
+    padding: 0 2px;
+    font-size: 1rem;
+    line-height: 1;
+    color: inherit;
+    opacity: 0.6;
+    cursor: pointer;
+
+    &:hover {
+        opacity: 1;
+    }
+}
+
+.stack-tag-empty {
+    font-size: 0.85rem;
+}
+
+.stack-add-select {
+    max-width: 220px;
 }
 </style>
