@@ -243,6 +243,9 @@
     "autoUpdateNoStacks": "暂无可用堆栈。",
     "autoUpdateNoStacksSelected": "未选择堆栈",
     "autoUpdateAddStack": "+ 添加堆栈...",
+    "autoUpdateTestNotification": "测试通知",
+    "autoUpdateTestNotificationSuccess": "测试通知发送成功。",
+    "autoUpdateTestNotificationFailed": "测试通知发送失败，请检查 Miotify 配置。",
     "All Stacks": "所有堆栈",
     "days": "天"
 }

@@ -690,6 +690,7 @@ export class AutoUpdater {
                 update_failed: "❌ Update Failed",
                 rollback_success: "🔄 Rollback Success",
                 rollback_failed: "⚠️ Rollback Failed",
+                test: "🔔 Test Notification",
             };
 
             const title = titleMap[type] || type;
@@ -703,6 +704,7 @@ export class AutoUpdater {
                 update_failed: 8,
                 rollback_success: 5,
                 rollback_failed: 9,
+                test: 5,
             };
 
             const baseUrl = miotifyUrl.replace(/\/+$/, "");
@@ -737,5 +739,17 @@ export class AutoUpdater {
         const stack = await Stack.getStack(this.server, stackName);
         const { results } = await this.checkStackUpdate(stackName, stack);
         return results || [];
+    }
+
+    async sendTestNotification(): Promise<boolean> {
+        try {
+            await this.sendMiotifyNotification("test", "Dockge", "Test notification from Dockge auto-update");
+            return true;
+        } catch (e) {
+            if (e instanceof Error) {
+                log.error("auto-update", `Test notification failed: ${e.message}`);
+            }
+            return false;
+        }
     }
 }

@@ -152,5 +152,19 @@ export class AutoUpdateSocketHandler extends SocketHandler {
                 callbackError(e, callback);
             }
         });
+
+        socket.on("autoUpdateTestNotification", async (callback) => {
+            try {
+                checkLogin(socket);
+                const success = await autoUpdater.sendTestNotification();
+                callbackResult({
+                    ok: success,
+                    msg: success ? "autoUpdateTestNotificationSuccess" : "autoUpdateTestNotificationFailed",
+                    msgi18n: true,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
     }
 }

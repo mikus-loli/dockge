@@ -125,6 +125,10 @@
                     <input id="miotifyToken" v-model="autoUpdateSettings.miotifyToken" class="form-control" type="password" placeholder="App Token" />
                     <div class="form-text">{{ $t("autoUpdateMiotifyTokenDescription") }}</div>
                 </div>
+                <button type="button" class="btn btn-outline-primary" :disabled="testingNotif" @click="testNotification">
+                    <span v-if="testingNotif" class="spinner-border spinner-border-sm me-1"></span>
+                    {{ $t("autoUpdateTestNotification") }}
+                </button>
             </div>
 
             <div class="mb-4">
@@ -210,6 +214,7 @@ export default {
             logFilter: "",
             saving: false,
             checking: false,
+            testingNotif: false,
         };
     },
 
@@ -321,6 +326,18 @@ export default {
             });
         },
 
+        testNotification() {
+            this.testingNotif = true;
+            this.$root.getSocket().emit("autoUpdateTestNotification", (res) => {
+                this.testingNotif = false;
+                if (res.ok) {
+                    this.$root.toastRes(res);
+                } else {
+                    this.$root.toastError(res.msg);
+                }
+            });
+        },
+
         loadLogs() {
             this.$root.getSocket().emit("autoUpdateGetLogs", this.logFilter || null, 100, (res) => {
                 if (res.ok) {
@@ -423,6 +440,21 @@ export default {
     th, td {
         padding: 0.4rem 0.6rem;
         vertical-align: middle;
+    }
+
+    .dark & {
+        color: $dark-font-color;
+        --bs-table-bg: transparent;
+        --bs-table-color: #{$dark-font-color};
+        --bs-table-border-color: #{$dark-border-color};
+        --bs-table-striped-bg: rgba(255, 255, 255, 0.02);
+        --bs-table-hover-bg: rgba(255, 255, 255, 0.04);
+    }
+}
+
+.table-responsive {
+    .dark & {
+        border-color: $dark-border-color;
     }
 }
 

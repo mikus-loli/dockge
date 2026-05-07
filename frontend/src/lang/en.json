@@ -263,6 +263,9 @@
     "autoUpdateNoStacks": "No stacks available.",
     "autoUpdateNoStacksSelected": "No stacks selected",
     "autoUpdateAddStack": "+ Add stack...",
+    "autoUpdateTestNotification": "Test Notification",
+    "autoUpdateTestNotificationSuccess": "Test notification sent successfully.",
+    "autoUpdateTestNotificationFailed": "Failed to send test notification. Please check your Miotify configuration.",
     "All Stacks": "All Stacks",
     "days": "days"
 }
