@@ -46,6 +46,7 @@ export class AutoUpdater {
     }
 
     async start() {
+        await this.ensureTables();
         const config = await this.getConfig();
         this.applyCron(config.schedule);
         log.info("auto-updater", `Auto-updater initialized (enabled: ${config.enabled}, schedule: ${config.schedule})`);
@@ -55,6 +56,36 @@ export class AutoUpdater {
         if (this.cronJob) {
             this.cronJob.stop();
             this.cronJob = undefined;
+        }
+    }
+
+    private async ensureTables() {
+        try {
+            await R.exec(`
+                CREATE TABLE IF NOT EXISTS auto_update_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    stack_name VARCHAR(255) NOT NULL,
+                    status VARCHAR(50) NOT NULL,
+                    error_message TEXT NOT NULL DEFAULT '',
+                    old_images TEXT NOT NULL DEFAULT '',
+                    new_images TEXT NOT NULL DEFAULT '',
+                    created_at VARCHAR(30) NOT NULL
+                )
+            `);
+            await R.exec("CREATE INDEX IF NOT EXISTS idx_auto_update_log_stack_name ON auto_update_log(stack_name)");
+            await R.exec("CREATE INDEX IF NOT EXISTS idx_auto_update_log_created_at ON auto_update_log(created_at)");
+            await R.exec(`
+                CREATE TABLE IF NOT EXISTS auto_update_backup (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    stack_name VARCHAR(255) NOT NULL,
+                    compose_yaml TEXT NOT NULL,
+                    created_at VARCHAR(30) NOT NULL
+                )
+            `);
+            await R.exec("CREATE INDEX IF NOT EXISTS idx_auto_update_backup_stack_name ON auto_update_backup(stack_name)");
+            log.info("auto-updater", "Database tables ensured");
+        } catch (e) {
+            log.error("auto-updater", `Failed to ensure tables: ${e}`);
         }
     }
 
@@ -176,8 +207,8 @@ export class AutoUpdater {
                 try {
                     const containerName = `${stackName}-${serviceName}-1`;
                     const res = await childProcessAsync.spawn("docker", [
-                        "inspect", "--format", "{{.Image}}", containerName,
-                    ], { encoding: "utf-8" });
+                "inspect", "--format", "{{.Image}}", containerName,
+            ], { encoding: "utf-8", maxBuffer: 50 * 1024 * 1024 });
 
                     if (res.stdout) {
                         const digest = res.stdout.toString().trim();
@@ -238,8 +269,9 @@ export class AutoUpdater {
                 try {
                     log.info("auto-updater", "Pruning unused images...");
                     await childProcessAsync.spawn("docker", ["image", "prune", "-f"], {
-                        encoding: "utf-8",
-                    });
+                encoding: "utf-8",
+                maxBuffer: 50 * 1024 * 1024,
+            });
                     log.info("auto-updater", "Image pruning completed");
                 } catch (e) {
                     log.warn("auto-updater", "Failed to prune images: " + e);
@@ -271,12 +303,13 @@ export class AutoUpdater {
 
         try {
             const pullResult = await childProcessAsync.spawn("docker",
-                stack.getComposeOptions("pull"),
-                {
-                    cwd: stack.fullPath,
-                    encoding: "utf-8",
-                }
-            );
+            stack.getComposeOptions("pull"),
+            {
+                cwd: stack.fullPath,
+                encoding: "utf-8",
+                maxBuffer: 50 * 1024 * 1024,
+            }
+        );
 
             const pullOutput = pullOutputToString(pullResult.stdout);
             log.info("auto-updater", `Pull completed for ${stackName}`);
@@ -298,12 +331,13 @@ export class AutoUpdater {
 
             if (stack.status === RUNNING) {
                 const upResult = await childProcessAsync.spawn("docker",
-                    stack.getComposeOptions("up", "-d", "--remove-orphans"),
-                    {
-                        cwd: stack.fullPath,
-                        encoding: "utf-8",
-                    }
-                );
+            stack.getComposeOptions("up", "-d", "--remove-orphans"),
+            {
+                cwd: stack.fullPath,
+                encoding: "utf-8",
+                maxBuffer: 50 * 1024 * 1024,
+            }
+        );
 
                 const upOutput = pullOutputToString(upResult.stdout);
                 log.info("auto-updater", `Redeploy completed for ${stackName}`);
@@ -392,12 +426,13 @@ export class AutoUpdater {
 
         if (stack.status === RUNNING) {
             await childProcessAsync.spawn("docker",
-                restoredStack.getComposeOptions("up", "-d", "--remove-orphans"),
-                {
-                    cwd: restoredStack.fullPath,
-                    encoding: "utf-8",
-                }
-            );
+            restoredStack.getComposeOptions("up", "-d", "--remove-orphans"),
+            {
+                cwd: restoredStack.fullPath,
+                encoding: "utf-8",
+                maxBuffer: 50 * 1024 * 1024,
+            }
+        );
         }
 
         await this.logUpdate(stackName, "rollback", "", "", "");
