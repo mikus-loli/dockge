@@ -3,7 +3,6 @@ import { Stack } from "./stack";
 import { log } from "./log";
 import { Settings } from "./settings";
 import { R } from "redbean-node";
-import { DockgeSocket } from "./util-server";
 import childProcessAsync from "promisify-child-process";
 import yaml from "yaml";
 import dayjs from "dayjs";
@@ -251,7 +250,28 @@ export class AutoUpdater {
 
             await this.savePreUpdateState(stackName, preUpdateIds);
 
-            await stack.update(undefined as unknown as DockgeSocket);
+            const pullRes = await childProcessAsync.spawn("docker", stack.getComposeOptions("pull"), {
+                cwd: stack.path,
+                encoding: "utf-8",
+                timeout: 300000,
+            });
+
+            if (pullRes.code !== 0 && pullRes.code !== null) {
+                throw new Error(`docker compose pull failed with code ${pullRes.code}`);
+            }
+
+            await stack.updateStatus();
+            if (stack.status === 3) {
+                const upRes = await childProcessAsync.spawn("docker", stack.getComposeOptions("up", "-d", "--remove-orphans"), {
+                    cwd: stack.path,
+                    encoding: "utf-8",
+                    timeout: 300000,
+                });
+
+                if (upRes.code !== 0 && upRes.code !== null) {
+                    throw new Error(`docker compose up failed with code ${upRes.code}`);
+                }
+            }
 
             const postUpdateIds = await this.captureImageIds(stack);
 
