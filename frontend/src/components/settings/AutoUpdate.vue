@@ -251,11 +251,10 @@ export default {
         },
 
         loadAllStacks() {
-            this.$root.getSocket().emit("requestStackList", (res) => {
-                if (res.ok) {
-                    this.allStackNames = Object.keys(res.stackList);
-                }
-            });
+            const stackList = this.$root.stackList;
+            if (stackList) {
+                this.allStackNames = Object.keys(stackList);
+            }
         },
 
         loadUpdateLog() {
