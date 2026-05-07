@@ -35,6 +35,7 @@ import {
     getMaxFailedAttempts,
     getLockoutDurationMinutes,
 } from "../two-factor-auth";
+import autoUpdater from "../auto-updater";
 
 export class MainSocketHandler extends SocketHandler {
     create(socket : DockgeSocket, server : DockgeServer) {
@@ -590,6 +591,122 @@ export class MainSocketHandler extends SocketHandler {
                 callback({
                     ok: true,
                     recoveryCodes: recoveryCodes,
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        // ***************************
+        // Auto Update Socket API
+        // ***************************
+
+        socket.on("autoUpdateStatus", async (callback) => {
+            try {
+                checkLogin(socket);
+                const status = await autoUpdater.getStatus();
+                callback({
+                    ok: true,
+                    status,
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        socket.on("setAutoUpdate", async (enabled, callback) => {
+            try {
+                checkLogin(socket);
+                await autoUpdater.setEnabled(enabled);
+                callback({
+                    ok: true,
+                    msg: enabled ? "autoUpdateEnabled" : "autoUpdateDisabled",
+                    msgi18n: true,
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        socket.on("setAutoUpdateWindow", async (window, callback) => {
+            try {
+                checkLogin(socket);
+                await autoUpdater.setUpdateWindow(window);
+                callback({
+                    ok: true,
+                    msg: "autoUpdateWindowSet",
+                    msgi18n: true,
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        socket.on("checkForUpdate", async (callback) => {
+            try {
+                checkLogin(socket);
+                const versionInfo = await autoUpdater.checkForUpdate();
+                callback({
+                    ok: true,
+                    latestVersion: autoUpdater.getLatestVersion(),
+                    currentVersion: autoUpdater.getCurrentVersion(),
+                    updateAvailable: !!autoUpdater.getLatestVersion(),
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        socket.on("performUpdate", async (callback) => {
+            try {
+                checkLogin(socket);
+
+                if (autoUpdater.isUpdateInProgress()) {
+                    throw new Error("Update already in progress");
+                }
+
+                callback({
+                    ok: true,
+                    msg: "updateStarted",
+                    msgi18n: true,
+                });
+
+                autoUpdater.performUpdate().then((success) => {
+                    if (!success) {
+                        socket.emit("autoUpdateError", {
+                            msg: "updateFailed",
+                            msgi18n: true,
+                        });
+                    }
+                }).catch((e) => {
+                    socket.emit("autoUpdateError", {
+                        msg: e.message,
+                    });
                 });
             } catch (e) {
                 if (e instanceof Error) {
