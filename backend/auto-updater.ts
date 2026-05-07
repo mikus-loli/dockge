@@ -84,7 +84,7 @@ export class AutoUpdater {
 
             const excludedStacks = await this.getExcludedStacks();
             const stackList = await Stack.getStackList(this.server, true);
-            const results: UpdateCheckResult[] = [];
+            const allResults: UpdateCheckResult[] = [];
 
             for (const [name, stack] of stackList) {
                 if (!stack.isManagedByDockge) {
@@ -97,11 +97,9 @@ export class AutoUpdater {
                 }
 
                 try {
-                    const result = await this.checkStackUpdate(name, stack);
-                    if (result) {
-                        results.push(...result);
-
-                        const updatedImages = result.filter(r => r.hasUpdate);
+                    const { results: checkResults, preUpdateIds } = await this.checkStackUpdate(name, stack);
+                    if (checkResults) {
+                        const updatedImages = checkResults.filter(r => r.hasUpdate);
                         if (updatedImages.length > 0) {
                             const imageList = updatedImages.map(r => r.image).join(", ");
                             log.info("auto-update", `Update available for ${name}: ${imageList}`);
@@ -119,10 +117,12 @@ export class AutoUpdater {
                             const autoDeploy = await Settings.get("autoUpdateAutoDeploy");
                             if (autoDeploy && autoDeploy !== "false") {
                                 this.isChecking = false;
-                                await this.executeUpdate(name);
+                                await this.executeUpdate(name, true, preUpdateIds);
                                 this.isChecking = true;
                             }
                         }
+
+                        allResults.push(...checkResults);
                     }
                 } catch (e) {
                     if (e instanceof Error) {
@@ -131,7 +131,7 @@ export class AutoUpdater {
                 }
             }
 
-            this.server.io.emit("autoUpdateCheckResult", results);
+            this.server.io.emit("autoUpdateCheckResult", allResults);
         } finally {
             this.isChecking = false;
         }
@@ -179,28 +179,73 @@ export class AutoUpdater {
         }
     }
 
-    async checkStackUpdate(stackName: string, stack: Stack): Promise<UpdateCheckResult[] | null> {
+    async getImageRepoDigest(imageStr: string): Promise<string | null> {
+        try {
+            const res = await childProcessAsync.spawn("docker", [
+                "image", "inspect",
+                "--format", "{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}",
+                imageStr,
+            ], {
+                encoding: "utf-8",
+                timeout: 30000,
+            });
+            const output = res.stdout?.toString().trim();
+            if (output && output.includes("@")) {
+                return output.split("@")[1];
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async checkStackUpdate(stackName: string, stack: Stack): Promise<{ results: UpdateCheckResult[] | null; preUpdateIds: Record<string, string> }> {
         try {
             const images = this.parseImagesFromCompose(stack.composeYAML);
             if (images.length === 0) {
-                return null;
+                return { results: null, preUpdateIds: {} };
             }
 
             const beforeIds: Record<string, string | null> = {};
+            const preUpdateIds: Record<string, string> = {};
             for (const img of images) {
-                beforeIds[img.image] = await this.getImageId(img.image);
+                const id = await this.getImageId(img.image);
+                beforeIds[img.image] = id;
+                const repoDigest = await this.getImageRepoDigest(img.image);
+                if (repoDigest) {
+                    preUpdateIds[img.image] = repoDigest;
+                } else if (id) {
+                    preUpdateIds[img.image] = id;
+                }
             }
 
+            let pullFailed = false;
             try {
-                await childProcessAsync.spawn("docker", stack.getComposeOptions("pull"), {
+                const pullRes = await childProcessAsync.spawn("docker", stack.getComposeOptions("pull"), {
                     cwd: stack.path,
                     encoding: "utf-8",
                     timeout: 300000,
                 });
+
+                if (pullRes.code !== 0 && pullRes.code !== null) {
+                    pullFailed = true;
+                    log.warn("auto-update", `docker compose pull failed for ${stackName} with code ${pullRes.code}`);
+                }
             } catch (e) {
+                pullFailed = true;
                 if (e instanceof Error) {
                     log.warn("auto-update", `docker compose pull failed for ${stackName}: ${e.message}`);
                 }
+            }
+
+            if (pullFailed) {
+                await this.addUpdateLog({
+                    stackName,
+                    type: "check",
+                    status: "failed",
+                    message: `Failed to pull images for stack ${stackName}`,
+                    timestamp: dayjs().toISOString(),
+                });
             }
 
             const results: UpdateCheckResult[] = [];
@@ -219,16 +264,16 @@ export class AutoUpdater {
                 });
             }
 
-            return results;
+            return { results, preUpdateIds };
         } catch (e) {
             if (e instanceof Error) {
                 log.error("auto-update", `Failed to check stack update for ${stackName}: ${e.message}`);
             }
-            return null;
+            return { results: null, preUpdateIds: {} };
         }
     }
 
-    async executeUpdate(stackName: string): Promise<boolean> {
+    async executeUpdate(stackName: string, skipPull = false, preUpdateIdsFromCheck?: Record<string, string>): Promise<boolean> {
         if (this.isUpdating) {
             log.warn("auto-update", "Another update is in progress, skipping");
             return false;
@@ -238,7 +283,7 @@ export class AutoUpdater {
         try {
             const stack = await Stack.getStack(this.server, stackName);
 
-            const preUpdateIds = await this.captureImageIds(stack);
+            const preUpdateIds = preUpdateIdsFromCheck || await this.captureImageIds(stack);
 
             await this.addUpdateLog({
                 stackName,
@@ -250,18 +295,22 @@ export class AutoUpdater {
 
             await this.savePreUpdateState(stackName, preUpdateIds);
 
-            const pullRes = await childProcessAsync.spawn("docker", stack.getComposeOptions("pull"), {
-                cwd: stack.path,
-                encoding: "utf-8",
-                timeout: 300000,
-            });
+            if (!skipPull) {
+                const pullRes = await childProcessAsync.spawn("docker", stack.getComposeOptions("pull"), {
+                    cwd: stack.path,
+                    encoding: "utf-8",
+                    timeout: 300000,
+                });
 
-            if (pullRes.code !== 0 && pullRes.code !== null) {
-                throw new Error(`docker compose pull failed with code ${pullRes.code}`);
+                if (pullRes.code !== 0 && pullRes.code !== null) {
+                    throw new Error(`docker compose pull failed with code ${pullRes.code}`);
+                }
             }
 
             await stack.updateStatus();
-            if (stack.status === 3) {
+            const wasRunning = stack.status === 3;
+
+            if (wasRunning) {
                 const upRes = await childProcessAsync.spawn("docker", stack.getComposeOptions("up", "-d", "--remove-orphans"), {
                     cwd: stack.path,
                     encoding: "utf-8",
@@ -271,6 +320,8 @@ export class AutoUpdater {
                 if (upRes.code !== 0 && upRes.code !== null) {
                     throw new Error(`docker compose up failed with code ${upRes.code}`);
                 }
+            } else {
+                log.info("auto-update", `Stack ${stackName} is not running, skipping restart. Images have been pulled.`);
             }
 
             const postUpdateIds = await this.captureImageIds(stack);
@@ -279,7 +330,9 @@ export class AutoUpdater {
                 stackName,
                 type: "update",
                 status: "success",
-                message: `Stack ${stackName} updated successfully`,
+                message: wasRunning
+                    ? `Stack ${stackName} updated and restarted successfully`
+                    : `Stack ${stackName} images pulled successfully (stack was not running)`,
                 oldDigest: JSON.stringify(preUpdateIds),
                 newDigest: JSON.stringify(postUpdateIds),
                 timestamp: dayjs().toISOString(),
@@ -334,17 +387,41 @@ export class AutoUpdater {
 
             const imageIds: Record<string, string> = JSON.parse(savedState);
 
-            for (const [image, imageId] of Object.entries(imageIds)) {
+            for (const [image, digest] of Object.entries(imageIds)) {
                 try {
                     await childProcessAsync.spawn("docker", [
-                        "pull", `${image}@${imageId}`,
+                        "pull", `${image}@${digest}`,
                     ], {
                         encoding: "utf-8",
                         timeout: 300000,
                     });
+
+                    const inspectRes = await childProcessAsync.spawn("docker", [
+                        "image", "inspect",
+                        "--format", "{{.Id}}",
+                        `${image}@${digest}`,
+                    ], {
+                        encoding: "utf-8",
+                        timeout: 30000,
+                    });
+
+                    const oldImageId = inspectRes.stdout?.toString().trim();
+                    if (!oldImageId) {
+                        log.warn("auto-update", `Could not get ID for old image ${image}@${digest}`);
+                        continue;
+                    }
+
+                    await childProcessAsync.spawn("docker", [
+                        "tag", "--force", oldImageId, image,
+                    ], {
+                        encoding: "utf-8",
+                        timeout: 30000,
+                    });
+
+                    log.info("auto-update", `Retagged ${image} to old version ${digest}`);
                 } catch (e) {
                     if (e instanceof Error) {
-                        log.warn("auto-update", `Could not pull old image for ${image}: ${e.message}`);
+                        log.warn("auto-update", `Could not rollback image ${image}: ${e.message}`);
                     }
                 }
             }
@@ -395,9 +472,14 @@ export class AutoUpdater {
         const images = this.parseImagesFromCompose(stack.composeYAML);
 
         for (const imageInfo of images) {
-            const id = await this.getImageId(imageInfo.image);
-            if (id) {
-                ids[imageInfo.image] = id;
+            const repoDigest = await this.getImageRepoDigest(imageInfo.image);
+            if (repoDigest) {
+                ids[imageInfo.image] = repoDigest;
+            } else {
+                const id = await this.getImageId(imageInfo.image);
+                if (id) {
+                    ids[imageInfo.image] = id;
+                }
             }
         }
 
@@ -434,17 +516,17 @@ export class AutoUpdater {
         try {
             let query = R.knex("update_log").orderBy("timestamp", "desc").limit(limit);
             if (stackName) {
-                query = query.where("stackName", stackName);
+                query = query.where("stack_name", stackName);
             }
             const rows = await query;
             return rows.map((row: Record<string, unknown>) => ({
                 id: row.id as number,
-                stackName: row.stackName as string,
+                stackName: row.stack_name as string,
                 type: row.type as UpdateLogEntry["type"],
                 status: row.status as UpdateLogEntry["status"],
                 message: row.message as string,
-                oldDigest: (row.oldDigest as string) || "",
-                newDigest: (row.newDigest as string) || "",
+                oldDigest: (row.old_digest as string) || "",
+                newDigest: (row.new_digest as string) || "",
                 timestamp: row.timestamp as string,
             }));
         } catch (e) {
@@ -561,7 +643,7 @@ export class AutoUpdater {
 
     async checkSingleStack(stackName: string): Promise<UpdateCheckResult[]> {
         const stack = await Stack.getStack(this.server, stackName);
-        const result = await this.checkStackUpdate(stackName, stack);
-        return result || [];
+        const { results } = await this.checkStackUpdate(stackName, stack);
+        return results || [];
     }
 }
