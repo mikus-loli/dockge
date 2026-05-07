@@ -1,549 +1,345 @@
 <template>
     <div>
-        <!-- Status Dashboard -->
-        <div class="mb-4">
-            <h4 class="mb-3">
-                <font-awesome-icon icon="tachometer-alt" class="me-2" />{{ $t("updateStatus") }}
-            </h4>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <div class="status-card">
-                        <div class="status-label">{{ $t("currentVersion") }}</div>
-                        <div class="status-value">
-                            {{ status.currentVersion || "-" }}
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="status-card">
-                        <div class="status-label">{{ $t("latestVersion") }}</div>
-                        <div class="status-value">
-                            <span v-if="status.updateAvailable" class="text-success">
-                                {{ status.latestVersion }}
-                                <span class="badge bg-success ms-1">{{ $t("New version available") }}</span>
-                            </span>
-                            <span v-else>{{ status.latestVersion || $t("sameAsLatest") }}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="status-card">
-                        <div class="status-label">{{ $t("Last checked") }}</div>
-                        <div class="status-value">
-                            {{ status.lastCheck ? formatTime(status.lastCheck) : $t("never") }}
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="status-card">
-                        <div class="status-label">{{ $t("updateRunningStatus") }}</div>
-                        <div class="status-value">
-                            <span v-if="status.isUpdating" class="text-warning">
-                                <font-awesome-icon icon="spinner" spin class="me-1" />{{ $t("updating") }}
-                            </span>
-                            <span v-else-if="status.updateAvailable" class="text-success">
-                                <font-awesome-icon icon="arrow-circle-up" class="me-1" />{{ $t("readyToUpdate") }}
-                            </span>
-                            <span v-else class="text-muted">
-                                <font-awesome-icon icon="check-circle" class="me-1" />{{ $t("upToDate") }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="my-4">
+            <h5 class="mb-3">
+                <font-awesome-icon icon="arrows-rotate" />
+                {{ $t("Auto Update Settings") }}
+            </h5>
 
-            <!-- Last Error -->
-            <div v-if="status.lastError" class="alert alert-danger mt-3">
-                <font-awesome-icon icon="exclamation-triangle" class="me-2" />
-                <strong>{{ $t("Last error") }}:</strong> {{ status.lastError }}
-            </div>
-        </div>
-
-        <!-- Auto-Update Configuration -->
-        <div class="mb-4">
-            <h4 class="mb-3">
-                <font-awesome-icon icon="cog" class="me-2" />{{ $t("Auto Update") }}
-            </h4>
-
-            <div class="mb-3">
-                <div class="form-check form-switch">
+            <div class="mb-4">
+                <label class="form-check-label">
                     <input
-                        v-model="autoUpdateEnabled"
-                        class="form-check-input"
+                        v-model="config.enabled"
+                        class="form-check-input me-2"
                         type="checkbox"
-                        role="switch"
-                        @change="setAutoUpdate"
                     />
-                    <label class="form-check-label">{{ $t("Enable Auto Update") }}</label>
-                </div>
+                    {{ $t("Enable Auto Update") }}
+                </label>
                 <div class="form-text">
-                    {{ $t("Automatically download and install updates when available") }}
+                    {{ $t("autoUpdateEnabledDesc") }}
                 </div>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label">{{ $t("Update Window") }}</label>
-                <select v-model="autoUpdateWindow" class="form-select" @change="setAutoUpdateWindow">
-                    <option value="any">{{ $t("Any time") }}</option>
-                    <option value="0-6">{{ $t("Midnight to 6 AM") }}</option>
-                    <option value="2-5">{{ $t("2 AM to 5 AM") }}</option>
-                    <option value="1-4">{{ $t("1 AM to 4 AM") }}</option>
-                </select>
+            <div class="mb-4">
+                <label class="form-label">
+                    {{ $t("Update Schedule") }}
+                </label>
+                <input
+                    v-model="config.schedule"
+                    class="form-control"
+                    placeholder="0 4 * * *"
+                />
                 <div class="form-text">
-                    {{ $t("updateWindowDesc") }}
+                    {{ $t("autoUpdateScheduleDesc") }}
                 </div>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="d-flex gap-2 flex-wrap">
-                <button class="btn btn-primary" :disabled="checking" @click="checkForUpdate">
-                    <font-awesome-icon v-if="checking" icon="spinner" spin class="me-1" />
-                    <font-awesome-icon v-else icon="sync" class="me-1" />
-                    {{ $t("Check Now") }}
-                </button>
+            <div class="mb-4">
+                <label class="form-check-label">
+                    <input
+                        v-model="config.pruneImages"
+                        class="form-check-input me-2"
+                        type="checkbox"
+                    />
+                    {{ $t("Prune Unused Images") }}
+                </label>
+                <div class="form-text">
+                    {{ $t("autoUpdatePruneDesc") }}
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-check-label">
+                    <input
+                        v-model="config.notifyOnUpdate"
+                        class="form-check-input me-2"
+                        type="checkbox"
+                    />
+                    {{ $t("Notify on Update") }}
+                </label>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-check-label">
+                    <input
+                        v-model="config.notifyOnError"
+                        class="form-check-input me-2"
+                        type="checkbox"
+                    />
+                    {{ $t("Notify on Error") }}
+                </label>
+            </div>
+
+            <div class="mb-4">
                 <button
-                    v-if="status.updateAvailable && !status.isUpdating"
-                    class="btn btn-success"
-                    :disabled="updating"
-                    @click="performUpdate"
+                    class="btn btn-primary me-2"
+                    type="button"
+                    :disabled="saving"
+                    @click="saveConfig"
                 >
-                    <font-awesome-icon v-if="updating" icon="spinner" spin class="me-1" />
-                    <font-awesome-icon v-else icon="rocket" class="me-1" />
-                    {{ $t("Update Now") }}
+                    <font-awesome-icon v-if="saving" icon="spinner" spin />
+                    {{ $t("Save") }}
                 </button>
+
                 <button
-                    v-if="status.rollbackAvailable"
-                    class="btn btn-warning"
-                    :disabled="rollingBack"
-                    @click="rollbackUpdate"
+                    class="btn btn-normal me-2"
+                    type="button"
+                    :disabled="running"
+                    @click="runNow"
                 >
-                    <font-awesome-icon v-if="rollingBack" icon="spinner" spin class="me-1" />
-                    <font-awesome-icon v-else icon="undo" class="me-1" />
-                    {{ $t("Rollback") }}
+                    <font-awesome-icon v-if="running" icon="spinner" spin />
+                    {{ $t("Run Auto Update Now") }}
                 </button>
             </div>
         </div>
 
-        <hr class="my-4" />
+        <div class="my-4">
+            <h5 class="mb-3">
+                <font-awesome-icon icon="cubes" />
+                {{ $t("Auto Update Stacks") }}
+            </h5>
 
-        <!-- Notification Settings -->
-        <div class="mb-4">
-            <h4 class="mb-3">
-                <font-awesome-icon icon="bell" class="me-2" />{{ $t("notificationSettings") }}
-            </h4>
-
-            <!-- Browser Notifications -->
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <font-awesome-icon icon="desktop" class="me-2" />{{ $t("browserNotifications") }}
-                    </h5>
-                    <div class="form-check form-switch mb-2">
-                        <input
-                            v-model="notificationConfig.browser.enabled"
-                            class="form-check-input"
-                            type="checkbox"
-                            role="switch"
-                            @change="saveNotificationConfig"
-                        />
-                        <label class="form-check-label">{{ $t("enableBrowserNotifications") }}</label>
-                    </div>
-                    <div class="form-text">{{ $t("browserNotificationsDesc") }}</div>
-                </div>
+            <div v-if="autoUpdateStacks.length === 0" class="text-muted mb-3">
+                {{ $t("No stacks configured for auto-update") }}
             </div>
 
-            <!-- Webhook Notifications -->
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <font-awesome-icon icon="link" class="me-2" />{{ $t("webhookNotifications") }}
-                    </h5>
-                    <div class="form-check form-switch mb-2">
-                        <input
-                            v-model="notificationConfig.webhook.enabled"
-                            class="form-check-input"
-                            type="checkbox"
-                            role="switch"
-                            @change="saveNotificationConfig"
-                        />
-                        <label class="form-check-label">{{ $t("enableWebhook") }}</label>
-                    </div>
-
-                    <div v-if="notificationConfig.webhook.enabled">
-                        <div class="mb-3">
-                            <label class="form-label">{{ $t("webhookUrl") }}</label>
-                            <input
-                                v-model="notificationConfig.webhook.url"
-                                type="url"
-                                class="form-control"
-                                placeholder="https://hooks.slack.com/services/..."
-                                @change="saveNotificationConfig"
-                            />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">{{ $t("httpMethod") }}</label>
-                            <select v-model="notificationConfig.webhook.method" class="form-select" @change="saveNotificationConfig">
-                                <option value="POST">POST</option>
-                                <option value="PUT">PUT</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">{{ $t("customHeaders") }}</label>
-                            <textarea
-                                v-model="webhookHeadersText"
-                                class="form-control font-monospace"
-                                rows="3"
-                                placeholder='{"Authorization": "Bearer xxx"}'
-                                @change="parseAndSaveHeaders"
-                            ></textarea>
-                            <div class="form-text">{{ $t("customHeadersDesc") }}</div>
-                        </div>
-                        <button class="btn btn-outline-secondary btn-sm" :disabled="testingWebhook" @click="testWebhook">
-                            <font-awesome-icon v-if="testingWebhook" icon="spinner" spin class="me-1" />
-                            <font-awesome-icon v-else icon="vial" class="me-1" />
-                            {{ $t("testWebhook") }}
-                        </button>
-                    </div>
-                </div>
+            <div v-for="stackName in autoUpdateStacks" :key="stackName" class="d-flex align-items-center mb-2">
+                <span class="me-2">{{ stackName }}</span>
+                <span class="badge bg-success me-2">{{ $t("Active") }}</span>
+                <button
+                    class="btn btn-outline-normal btn-sm"
+                    @click="disableStackAutoUpdate(stackName)"
+                >
+                    {{ $t("Disable") }}
+                </button>
             </div>
-        </div>
 
-        <hr class="my-4" />
-
-        <!-- Update Logs -->
-        <div class="mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">
-                    <font-awesome-icon icon="history" class="me-2" />{{ $t("updateLogs") }}
-                </h4>
-                <div class="d-flex gap-2">
-                    <select v-model="logFilter" class="form-select form-select-sm" style="width: auto;">
-                        <option value="all">{{ $t("all") }}</option>
-                        <option value="success">{{ $t("success") }}</option>
-                        <option value="failed">{{ $t("failed") }}</option>
-                        <option value="rolled_back">{{ $t("rolledBack") }}</option>
+            <div v-if="availableStacks.length > 0" class="mt-3">
+                <h6>{{ $t("Enable Auto Update for Stack") }}</h6>
+                <div class="input-group" style="max-width: 400px;">
+                    <select v-model="selectedStack" class="form-select">
+                        <option value="" disabled>{{ $t("Select a stack") }}</option>
+                        <option
+                            v-for="stackName in availableStacks"
+                            :key="stackName"
+                            :value="stackName"
+                        >
+                            {{ stackName }}
+                        </option>
                     </select>
-                    <button class="btn btn-outline-danger btn-sm" @click="clearLogs">
-                        <font-awesome-icon icon="trash" class="me-1" />{{ $t("clearLogs") }}
+                    <button
+                        class="btn btn-primary"
+                        type="button"
+                        :disabled="!selectedStack"
+                        @click="enableStackAutoUpdate"
+                    >
+                        {{ $t("Enable") }}
                     </button>
                 </div>
             </div>
+        </div>
 
-            <div v-if="filteredLogs.length === 0" class="text-center text-muted py-4">
-                <font-awesome-icon icon="inbox" class="me-1" />
-                {{ $t("noUpdateLogs") }}
+        <div class="my-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">
+                    <font-awesome-icon icon="history" />
+                    {{ $t("Update Log") }}
+                </h5>
+                <button
+                    class="btn btn-outline-normal btn-sm"
+                    @click="clearLog"
+                >
+                    {{ $t("Clear Log") }}
+                </button>
             </div>
 
-            <div v-else class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>{{ $t("Time") }}</th>
-                            <th>{{ $t("Image") }}</th>
-                            <th>{{ $t("Old Version") }}</th>
-                            <th>{{ $t("New Version") }}</th>
-                            <th>{{ $t("Status") }}</th>
-                            <th>{{ $t("Duration") }}</th>
-                            <th>{{ $t("Error") }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="log in filteredLogs" :key="log.id">
-                            <td class="text-nowrap">{{ formatTime(new Date(log.created_at).getTime()) }}</td>
-                            <td class="text-truncate" style="max-width: 200px;" :title="log.image_name">
-                                {{ log.image_name }}
-                            </td>
-                            <td>{{ log.old_version || "-" }}</td>
-                            <td>{{ log.new_version || "-" }}</td>
-                            <td>
-                                <span :class="'badge bg-' + getStatusColor(log.status)">
-                                    {{ $t(log.status) }}
-                                </span>
-                            </td>
-                            <td>{{ log.duration_ms ? log.duration_ms + "ms" : "-" }}</td>
-                            <td class="text-truncate" style="max-width: 200px;" :title="log.error_message">
-                                {{ log.error_message || "-" }}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div v-if="updateLog.length === 0" class="text-muted">
+                {{ $t("No update logs") }}
             </div>
 
-            <!-- Pagination -->
-            <div v-if="logTotal > logPageSize" class="d-flex justify-content-center mt-3">
-                <nav>
-                    <ul class="pagination pagination-sm">
-                        <li class="page-item" :class="{ disabled: logPage === 1 }">
-                            <a class="page-link" href="#" @click.prevent="changeLogPage(logPage - 1)">&laquo;</a>
-                        </li>
-                        <li
-                            v-for="p in totalPages"
-                            :key="p"
-                            class="page-item"
-                            :class="{ active: p === logPage }"
+            <div v-for="entry in updateLog" :key="entry.id" class="log-entry mb-2 p-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="fw-bold">{{ entry.stackName }}</span>
+                        <span
+                            class="badge ms-2"
+                            :class="statusBadgeClass(entry.status)"
                         >
-                            <a class="page-link" href="#" @click.prevent="changeLogPage(p)">{{ p }}</a>
-                        </li>
-                        <li class="page-item" :class="{ disabled: logPage === totalPages }">
-                            <a class="page-link" href="#" @click.prevent="changeLogPage(logPage + 1)">&raquo;</a>
-                        </li>
-                    </ul>
-                </nav>
+                            {{ entry.status }}
+                        </span>
+                    </div>
+                    <small class="text-muted">{{ formatDate(entry.createdAt) }}</small>
+                </div>
+                <div v-if="entry.errorMessage" class="text-danger mt-1 small">
+                    {{ entry.errorMessage }}
+                </div>
+                <div v-if="entry.status === 'success'" class="mt-1">
+                    <button
+                        class="btn btn-outline-normal btn-sm"
+                        @click="rollback(entry.stackName)"
+                    >
+                        <font-awesome-icon icon="undo" />
+                        {{ $t("Rollback") }}
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script>
-import { useToast } from "vue-toastification";
-
 export default {
-    setup() {
-        const toast = useToast();
-        return { toast };
-    },
-
     data() {
         return {
-            status: {},
-            autoUpdateEnabled: false,
-            autoUpdateWindow: "any",
-            checking: false,
-            updating: false,
-            rollingBack: false,
-            testingWebhook: false,
-            notificationConfig: {
-                browser: {
-                    enabled: true,
-                    events: ["update_available", "update_success", "update_failed", "rollback_success", "rollback_failed"],
-                },
-                webhook: {
-                    enabled: false,
-                    url: "",
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    events: ["update_failed", "rollback_failed"],
-                },
+            config: {
+                enabled: false,
+                schedule: "0 4 * * *",
+                pruneImages: false,
+                notifyOnUpdate: true,
+                notifyOnError: true,
             },
-            webhookHeadersText: '{"Content-Type": "application/json"}',
-            updateLogs: [],
-            logTotal: 0,
-            logPage: 1,
-            logPageSize: 20,
-            logFilter: "all",
-            socketListenerRegistered: false,
+            saving: false,
+            running: false,
+            autoUpdateStacks: [],
+            allStackNames: [],
+            selectedStack: "",
+            updateLog: [],
         };
     },
 
     computed: {
-        filteredLogs() {
-            if (this.logFilter === "all") {
-                return this.updateLogs;
-            }
-            return this.updateLogs.filter((l) => l.status === this.logFilter);
-        },
-
-        totalPages() {
-            return Math.ceil(this.logTotal / this.logPageSize) || 1;
+        availableStacks() {
+            return this.allStackNames.filter(
+                (name) => !this.autoUpdateStacks.includes(name)
+            );
         },
     },
 
     mounted() {
-        this.fetchAutoUpdateStatus();
-        this.fetchNotificationConfig();
-        this.fetchUpdateLogs();
-        this.registerSocketListeners();
-    },
-
-    unmounted() {
-        if (this.socketListenerRegistered) {
-            this.$root.getSocket().off("autoUpdateNotification");
-            this.$root.getSocket().off("autoUpdateError");
-        }
+        this.loadConfig();
+        this.loadAutoUpdateStacks();
+        this.loadUpdateLog();
+        this.loadAllStacks();
     },
 
     methods: {
-        registerSocketListeners() {
-            if (this.socketListenerRegistered) return;
-            this.socketListenerRegistered = true;
-
-            this.$root.getSocket().on("autoUpdateNotification", (data) => {
-                if (data.event === "update_success") {
-                    this.toast.success(this.$t("updateSuccessNotify", { version: data.newVersion }));
-                    this.fetchAutoUpdateStatus();
-                    this.fetchUpdateLogs();
-                } else if (data.event === "update_failed") {
-                    this.toast.error(this.$t("updateFailedNotify"));
-                    this.fetchAutoUpdateStatus();
-                    this.fetchUpdateLogs();
-                } else if (data.event === "update_available") {
-                    this.toast.info(this.$t("updateAvailableNotify", { version: data.newVersion }));
-                    this.fetchAutoUpdateStatus();
-                } else if (data.event === "rollback_success") {
-                    this.toast.success(this.$t("rollbackSuccessNotify"));
-                    this.fetchAutoUpdateStatus();
-                    this.fetchUpdateLogs();
-                } else if (data.event === "rollback_failed") {
-                    this.toast.error(this.$t("rollbackFailedNotify"));
-                    this.fetchUpdateLogs();
-                }
-            });
-
-            this.$root.getSocket().on("autoUpdateError", (data) => {
-                const msg = data.msgi18n ? this.$t(data.msg) : data.msg;
-                this.toast.error(msg);
-                this.fetchAutoUpdateStatus();
-                this.fetchUpdateLogs();
-            });
-        },
-
-        fetchAutoUpdateStatus() {
-            this.$root.getSocket().emit("autoUpdateStatus", (res) => {
+        loadConfig() {
+            this.$root.getSocket().emit("getAutoUpdateConfig", (res) => {
                 if (res.ok) {
-                    this.status = res.status;
-                    this.autoUpdateEnabled = res.status.enabled;
-                    this.autoUpdateWindow = res.status.updateWindow || "any";
+                    this.config = res.config;
                 }
             });
         },
 
-        fetchNotificationConfig() {
-            this.$root.getSocket().emit("getNotificationConfig", (res) => {
-                if (res.ok && res.config) {
-                    this.notificationConfig = {
-                        browser: { ...this.notificationConfig.browser, ...res.config.browser },
-                        webhook: { ...this.notificationConfig.webhook, ...res.config.webhook },
-                    };
-                    try {
-                        this.webhookHeadersText = JSON.stringify(this.notificationConfig.webhook.headers, null, 2);
-                    } catch {
-                        // ignore
-                    }
-                }
-            });
-        },
-
-        fetchUpdateLogs() {
-            this.$root.getSocket().emit("getUpdateLogs", {
-                limit: this.logPageSize,
-                offset: (this.logPage - 1) * this.logPageSize,
-            }, (res) => {
-                if (res.ok) {
-                    this.updateLogs = res.logs;
-                    this.logTotal = res.total;
-                }
-            });
-        },
-
-        setAutoUpdate() {
-            this.$root.getSocket().emit("setAutoUpdate", this.autoUpdateEnabled, (res) => {
-                this.$root.toastRes(res);
-            });
-        },
-
-        setAutoUpdateWindow() {
-            this.$root.getSocket().emit("setAutoUpdateWindow", this.autoUpdateWindow, (res) => {
-                this.$root.toastRes(res);
-            });
-        },
-
-        checkForUpdate() {
-            this.checking = true;
-            this.$root.getSocket().emit("checkForUpdate", (res) => {
-                this.checking = false;
-                if (res.ok) {
-                    this.status.latestVersion = res.latestVersion;
-                    this.status.updateAvailable = res.updateAvailable;
-                    if (res.updateAvailable) {
-                        this.toast.info(this.$t("updateAvailableNotify", { version: res.latestVersion }));
-                    } else {
-                        this.toast.success(this.$t("upToDate"));
-                    }
-                } else {
-                    this.toast.error(res.msg);
-                }
-                this.status.lastCheck = Date.now();
-            });
-        },
-
-        performUpdate() {
-            if (!confirm(this.$t("confirmUpdate"))) return;
-            this.updating = true;
-            this.$root.getSocket().emit("performUpdate", (res) => {
-                this.updating = false;
+        saveConfig() {
+            this.saving = true;
+            this.$root.getSocket().emit("setAutoUpdateConfig", this.config, (res) => {
+                this.saving = false;
                 this.$root.toastRes(res);
                 if (res.ok) {
-                    this.status.isUpdating = true;
+                    this.config = res.config;
                 }
             });
         },
 
-        rollbackUpdate() {
-            if (!confirm(this.$t("confirmRollback"))) return;
-            this.rollingBack = true;
-            this.$root.getSocket().emit("rollbackUpdate", (res) => {
-                this.rollingBack = false;
+        loadAutoUpdateStacks() {
+            this.$root.getSocket().emit("getAutoUpdateStacks", (res) => {
+                if (res.ok) {
+                    this.autoUpdateStacks = res.stacks;
+                }
+            });
+        },
+
+        loadAllStacks() {
+            this.$root.getSocket().emit("requestStackList", (res) => {
+                if (res.ok) {
+                    this.allStackNames = Object.keys(res.stackList);
+                }
+            });
+        },
+
+        loadUpdateLog() {
+            this.$root.getSocket().emit("getAutoUpdateLog", null, (res) => {
+                if (res.ok) {
+                    this.updateLog = res.log;
+                }
+            });
+        },
+
+        enableStackAutoUpdate() {
+            if (!this.selectedStack) {
+                return;
+            }
+            this.$root.getSocket().emit("setStackAutoUpdate", this.selectedStack, true, (res) => {
                 this.$root.toastRes(res);
                 if (res.ok) {
-                    this.status.isUpdating = true;
+                    this.selectedStack = "";
+                    this.loadAutoUpdateStacks();
                 }
             });
         },
 
-        saveNotificationConfig() {
-            this.$root.getSocket().emit("setNotificationConfig", this.notificationConfig, (res) => {
+        disableStackAutoUpdate(stackName) {
+            this.$root.getSocket().emit("setStackAutoUpdate", stackName, false, (res) => {
                 this.$root.toastRes(res);
+                if (res.ok) {
+                    this.loadAutoUpdateStacks();
+                }
             });
         },
 
-        parseAndSaveHeaders() {
-            try {
-                const parsed = JSON.parse(this.webhookHeadersText);
-                this.notificationConfig.webhook.headers = parsed;
-                this.saveNotificationConfig();
-            } catch {
-                this.toast.error(this.$t("invalidJson"));
+        runNow() {
+            this.running = true;
+            this.$root.getSocket().emit("runAutoUpdateNow", (res) => {
+                this.running = false;
+                this.$root.toastRes(res);
+                setTimeout(() => {
+                    this.loadUpdateLog();
+                }, 5000);
+            });
+        },
+
+        rollback(stackName) {
+            this.$root.getSocket().emit("rollbackStack", stackName, (res) => {
+                this.$root.toastRes(res);
+                if (res.ok) {
+                    this.loadUpdateLog();
+                }
+            });
+        },
+
+        clearLog() {
+            this.$root.getSocket().emit("clearAutoUpdateLog", null, (res) => {
+                this.$root.toastRes(res);
+                if (res.ok) {
+                    this.updateLog = [];
+                }
+            });
+        },
+
+        statusBadgeClass(status) {
+            switch (status) {
+                case "success":
+                    return "bg-success";
+                case "error":
+                    return "bg-danger";
+                case "rollback":
+                    return "bg-warning";
+                case "no_update":
+                    return "bg-secondary";
+                default:
+                    return "bg-secondary";
             }
         },
 
-        testWebhook() {
-            this.testingWebhook = true;
-            this.$root.getSocket().emit("testWebhook", (res) => {
-                this.testingWebhook = false;
-                this.$root.toastRes(res);
-            });
-        },
-
-        clearLogs() {
-            if (!confirm(this.$t("confirmClearLogs"))) return;
-            this.$root.getSocket().emit("clearUpdateLogs", {}, (res) => {
-                if (res.ok) {
-                    this.toast.success(this.$t("logsDeleted", { count: res.deleted }));
-                    this.logPage = 1;
-                    this.fetchUpdateLogs();
-                }
-            });
-        },
-
-        changeLogPage(page) {
-            if (page < 1 || page > this.totalPages) return;
-            this.logPage = page;
-            this.fetchUpdateLogs();
-        },
-
-        formatTime(timestamp) {
-            if (!timestamp) return "-";
-            const d = new Date(timestamp);
-            return d.toLocaleString();
-        },
-
-        getStatusColor(status) {
-            switch (status) {
-                case "success": return "success";
-                case "failed": return "danger";
-                case "rolled_back": return "warning";
-                case "started": return "info";
-                default: return "secondary";
+        formatDate(dateStr) {
+            if (!dateStr) {
+                return "";
+            }
+            try {
+                return new Date(dateStr).toLocaleString();
+            } catch (e) {
+                return dateStr;
             }
         },
     },
@@ -553,44 +349,12 @@ export default {
 <style lang="scss" scoped>
 @import "../../styles/vars.scss";
 
-.status-card {
-    background: rgba(0, 0, 0, 0.03);
+.log-entry {
     border-radius: 8px;
-    padding: 12px 16px;
+    background-color: $highlight-white;
 
     .dark & {
-        background: $dark-header-bg;
-    }
-
-    .status-label {
-        font-size: 12px;
-        color: $text-muted;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
-    }
-
-    .status-value {
-        font-size: 16px;
-        font-weight: 500;
-    }
-}
-
-.card {
-    border-radius: 10px;
-
-    .dark & {
-        background: $dark-header-bg;
-        border-color: $dark-border-color;
-    }
-}
-
-.table {
-    font-size: 14px;
-
-    th {
-        font-weight: 600;
-        white-space: nowrap;
+        background-color: $dark-header-bg;
     }
 }
 </style>

@@ -16,7 +16,6 @@ import { MainSocketHandler } from "./socket-handlers/main-socket-handler";
 import { SocketHandler } from "./socket-handler";
 import { Settings } from "./settings";
 import checkVersion from "./check-version";
-import autoUpdater from "./auto-updater";
 import dayjs from "dayjs";
 import { R } from "redbean-node";
 import { genSecret, isDev, LooseObject } from "../common/util-common";
@@ -38,6 +37,7 @@ import { AgentSocketHandler } from "./agent-socket-handler";
 import { AgentSocket } from "../common/agent-socket";
 import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-handler";
 import { Terminal } from "./terminal";
+import { AutoUpdater } from "./auto-updater";
 
 export class DockgeServer {
     app : Express;
@@ -63,6 +63,8 @@ export class DockgeServer {
     ];
 
     agentProxySocketHandler = new AgentProxySocketHandler();
+
+    autoUpdater: AutoUpdater = new AutoUpdater(this as DockgeServer);
 
     /**
      * List of socket handlers (support agent)
@@ -406,7 +408,8 @@ export class DockgeServer {
             });
 
             checkVersion.startInterval();
-            autoUpdater.init(this);
+
+            this.autoUpdater.start();
         });
 
         gracefulShutdown(this.httpServer, {
@@ -684,6 +687,7 @@ export class DockgeServer {
 
         // TODO: Close all terminals?
 
+        this.autoUpdater.stop();
         await Database.close();
         Settings.stopCacheCleaner();
     }

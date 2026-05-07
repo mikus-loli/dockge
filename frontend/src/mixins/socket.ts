@@ -292,6 +292,21 @@ export default defineComponent({
             socket.on("refresh", () => {
                 location.reload();
             });
+
+            socket.on("autoUpdateSuccess", (data) => {
+                console.log("Auto-update success:", data);
+                this.toastSuccess(`Auto-update: ${data.stackName} updated successfully`);
+            });
+
+            socket.on("autoUpdateError", (data) => {
+                console.error("Auto-update error:", data);
+                this.toastError(`Auto-update failed: ${data.stackName} - ${data.error}`);
+            });
+
+            socket.on("autoUpdateRollback", (data) => {
+                console.log("Auto-update rollback:", data);
+                this.toastSuccess(`Rollback completed: ${data.stackName}`);
+            });
         },
 
         /**
