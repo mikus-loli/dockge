@@ -87,7 +87,7 @@ export default {
                     title: this.$t("GlobalEnv"),
                 },
                 autoUpdate: {
-                    title: this.$t("Auto Update"),
+                    title: this.$t("AutoUpdate"),
                 },
                 about: {
                     title: this.$t("About"),

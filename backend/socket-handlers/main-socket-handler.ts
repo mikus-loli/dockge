@@ -9,7 +9,6 @@ import { generatePasswordHash, needRehashPassword, shake256, SHAKE256_LENGTH, ve
 import { User } from "../models/user";
 import {
     callbackError,
-    callbackResult,
     checkLogin,
     DockgeSocket,
     doubleCheckPassword,
@@ -599,129 +598,6 @@ export class MainSocketHandler extends SocketHandler {
                         msg: e.message,
                     });
                 }
-            }
-        });
-
-        // Auto-update management
-        socket.on("getAutoUpdateConfig", async (callback) => {
-            try {
-                checkLogin(socket);
-                const config = await server.autoUpdater.getConfig();
-                callbackResult({
-                    ok: true,
-                    config,
-                }, callback);
-            } catch (e) {
-                callbackError(e, callback);
-            }
-        });
-
-        socket.on("setAutoUpdateConfig", async (config: unknown, callback) => {
-            try {
-                checkLogin(socket);
-                if (typeof config !== "object" || config === null) {
-                    throw new ValidationError("Config must be an object");
-                }
-                const result = await server.autoUpdater.setConfig(config as Record<string, unknown>);
-                callbackResult({
-                    ok: true,
-                    config: result,
-                }, callback);
-            } catch (e) {
-                callbackError(e, callback);
-            }
-        });
-
-        socket.on("getAutoUpdateStacks", async (callback) => {
-            try {
-                checkLogin(socket);
-                const stacks = await server.autoUpdater.getAutoUpdateStacks();
-                callbackResult({
-                    ok: true,
-                    stacks,
-                }, callback);
-            } catch (e) {
-                callbackError(e, callback);
-            }
-        });
-
-        socket.on("setStackAutoUpdate", async (stackName: unknown, enabled: unknown, callback) => {
-            try {
-                checkLogin(socket);
-                if (typeof stackName !== "string") {
-                    throw new ValidationError("Stack name must be a string");
-                }
-                if (typeof enabled !== "boolean") {
-                    throw new ValidationError("Enabled must be a boolean");
-                }
-                await server.autoUpdater.setStackAutoUpdate(stackName, enabled);
-                callbackResult({
-                    ok: true,
-                    msg: enabled ? "Auto-update enabled" : "Auto-update disabled",
-                    msgi18n: true,
-                }, callback);
-            } catch (e) {
-                callbackError(e, callback);
-            }
-        });
-
-        socket.on("getAutoUpdateLog", async (stackName: unknown, callback) => {
-            try {
-                checkLogin(socket);
-                const name = typeof stackName === "string" ? stackName : undefined;
-                const autoUpdateLog = await server.autoUpdater.getUpdateLog(name);
-                callbackResult({
-                    ok: true,
-                    log: autoUpdateLog,
-                }, callback);
-            } catch (e) {
-                callbackError(e, callback);
-            }
-        });
-
-        socket.on("clearAutoUpdateLog", async (stackName: unknown, callback) => {
-            try {
-                checkLogin(socket);
-                const name = typeof stackName === "string" ? stackName : undefined;
-                await server.autoUpdater.clearLog(name);
-                callbackResult({
-                    ok: true,
-                    msg: "Log cleared",
-                    msgi18n: true,
-                }, callback);
-            } catch (e) {
-                callbackError(e, callback);
-            }
-        });
-
-        socket.on("rollbackStack", async (stackName: unknown, callback) => {
-            try {
-                checkLogin(socket);
-                if (typeof stackName !== "string") {
-                    throw new ValidationError("Stack name must be a string");
-                }
-                await server.autoUpdater.rollback(stackName);
-                callbackResult({
-                    ok: true,
-                    msg: "Rollback completed",
-                    msgi18n: true,
-                }, callback);
-            } catch (e) {
-                callbackError(e, callback);
-            }
-        });
-
-        socket.on("runAutoUpdateNow", async (callback) => {
-            try {
-                checkLogin(socket);
-                server.autoUpdater.runAutoUpdate();
-                callbackResult({
-                    ok: true,
-                    msg: "Auto-update started",
-                    msgi18n: true,
-                }, callback);
-            } catch (e) {
-                callbackError(e, callback);
             }
         });
     }

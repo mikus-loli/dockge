@@ -37,6 +37,7 @@ import { AgentSocketHandler } from "./agent-socket-handler";
 import { AgentSocket } from "../common/agent-socket";
 import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-handler";
 import { Terminal } from "./terminal";
+import { AutoUpdateSocketHandler } from "./socket-handlers/auto-update-socket-handler";
 import { AutoUpdater } from "./auto-updater";
 
 export class DockgeServer {
@@ -60,11 +61,10 @@ export class DockgeServer {
     socketHandlerList : SocketHandler[] = [
         new MainSocketHandler(),
         new ManageAgentSocketHandler(),
+        new AutoUpdateSocketHandler(),
     ];
 
     agentProxySocketHandler = new AgentProxySocketHandler();
-
-    autoUpdater: AutoUpdater = new AutoUpdater(this as DockgeServer);
 
     /**
      * List of socket handlers (support agent)
@@ -82,6 +82,8 @@ export class DockgeServer {
     jwtSecret : string = "";
 
     stacksDir : string = "";
+
+    autoUpdater! : AutoUpdater;
 
     /**
      *
@@ -409,6 +411,7 @@ export class DockgeServer {
 
             checkVersion.startInterval();
 
+            this.autoUpdater = new AutoUpdater(this);
             this.autoUpdater.start();
         });
 
@@ -685,9 +688,10 @@ export class DockgeServer {
         log.info("server", "Shutdown requested");
         log.info("server", "Called signal: " + signal);
 
-        // TODO: Close all terminals?
+        if (this.autoUpdater) {
+            this.autoUpdater.stop();
+        }
 
-        this.autoUpdater.stop();
         await Database.close();
         Settings.stopCacheCleaner();
     }
