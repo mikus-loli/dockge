@@ -3,6 +3,7 @@ import { Stack } from "./stack";
 import { log } from "./log";
 import { Settings } from "./settings";
 import { R } from "redbean-node";
+import { DockgeSocket } from "./util-server";
 import childProcessAsync from "promisify-child-process";
 import yaml from "yaml";
 import dayjs from "dayjs";
@@ -244,30 +245,7 @@ export class AutoUpdater {
 
             await this.savePreUpdateState(stackName, preUpdateIds);
 
-            const pullRes = await childProcessAsync.spawn("docker", stack.getComposeOptions("pull"), {
-                cwd: stack.path,
-                encoding: "utf-8",
-                timeout: 300000,
-            });
-
-            if (pullRes.code !== 0 && pullRes.code !== null) {
-                throw new Error(`docker compose pull failed with code ${pullRes.code}`);
-            }
-
-            await stack.updateStatus();
-            const wasRunning = stack.status === 3;
-
-            if (wasRunning) {
-                const upRes = await childProcessAsync.spawn("docker", stack.getComposeOptions("up", "-d", "--remove-orphans"), {
-                    cwd: stack.path,
-                    encoding: "utf-8",
-                    timeout: 300000,
-                });
-
-                if (upRes.code !== 0 && upRes.code !== null) {
-                    throw new Error(`docker compose up failed with code ${upRes.code}`);
-                }
-            }
+            await stack.update(undefined as unknown as DockgeSocket);
 
             const postUpdateIds = await this.captureImageIds(stack);
 
@@ -470,6 +448,7 @@ export class AutoUpdater {
         const autoRollback = await Settings.get("autoUpdateAutoRollback") || false;
         const logRetentionDays = await Settings.get("autoUpdateLogRetentionDays") || 30;
         const excludedStacks = await Settings.get("autoUpdateExcludedStacks") || [];
+        const notifications = await Settings.get("autoUpdateNotifications") !== false;
 
         return {
             enabled,
@@ -478,33 +457,35 @@ export class AutoUpdater {
             autoRollback,
             logRetentionDays,
             excludedStacks,
+            notifications,
             isChecking: this.isChecking,
             isUpdating: this.isUpdating,
         };
     }
 
     async saveUpdateSettings(settings: Record<string, unknown>) {
-        const keys = [
-            "autoUpdateEnabled",
-            "autoUpdateCheckInterval",
-            "autoUpdateAutoDeploy",
-            "autoUpdateAutoRollback",
-            "autoUpdateLogRetentionDays",
-            "autoUpdateExcludedStacks",
-        ];
+        const keyMap: Record<string, string> = {
+            enabled: "autoUpdateEnabled",
+            checkInterval: "autoUpdateCheckInterval",
+            autoDeploy: "autoUpdateAutoDeploy",
+            autoRollback: "autoUpdateAutoRollback",
+            logRetentionDays: "autoUpdateLogRetentionDays",
+            excludedStacks: "autoUpdateExcludedStacks",
+            notifications: "autoUpdateNotifications",
+        };
 
-        for (const key of keys) {
-            if (settings[key] !== undefined) {
-                await Settings.set(key, settings[key] as string | number | boolean | object);
+        for (const [frontendKey, backendKey] of Object.entries(keyMap)) {
+            if (settings[frontendKey] !== undefined) {
+                await Settings.set(backendKey, settings[frontendKey] as string | number | boolean | object);
             }
         }
 
-        if (settings.autoUpdateEnabled !== undefined || settings.autoUpdateCheckInterval !== undefined) {
+        if (settings.enabled !== undefined || settings.checkInterval !== undefined) {
             await this.restart();
         }
 
-        if (settings.autoUpdateLogRetentionDays !== undefined) {
-            await this.clearUpdateLogs(settings.autoUpdateLogRetentionDays as number);
+        if (settings.logRetentionDays !== undefined) {
+            await this.clearUpdateLogs(settings.logRetentionDays as number);
         }
     }
 
