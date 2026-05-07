@@ -11,6 +11,7 @@ declare module 'vue' {
     Appearance: typeof import('./src/components/settings/Appearance.vue')['default']
     ArrayInput: typeof import('./src/components/ArrayInput.vue')['default']
     ArraySelect: typeof import('./src/components/ArraySelect.vue')['default']
+    AutoUpdate: typeof import('./src/components/settings/AutoUpdate.vue')['default']
     BDropdown: typeof import('bootstrap-vue-next')['BDropdown']
     BDropdownItem: typeof import('bootstrap-vue-next')['BDropdownItem']
     BModal: typeof import('bootstrap-vue-next')['BModal']

@@ -36,6 +36,7 @@ import {
     getLockoutDurationMinutes,
 } from "../two-factor-auth";
 import autoUpdater from "../auto-updater";
+import notificationManager from "../notification-manager";
 
 export class MainSocketHandler extends SocketHandler {
     create(socket : DockgeSocket, server : DockgeServer) {
@@ -665,7 +666,7 @@ export class MainSocketHandler extends SocketHandler {
         socket.on("checkForUpdate", async (callback) => {
             try {
                 checkLogin(socket);
-                const versionInfo = await autoUpdater.checkForUpdate();
+                await autoUpdater.checkForUpdate();
                 callback({
                     ok: true,
                     latestVersion: autoUpdater.getLatestVersion(),
@@ -707,6 +708,161 @@ export class MainSocketHandler extends SocketHandler {
                     socket.emit("autoUpdateError", {
                         msg: e.message,
                     });
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        socket.on("rollbackUpdate", async (callback) => {
+            try {
+                checkLogin(socket);
+
+                if (autoUpdater.isUpdateInProgress()) {
+                    throw new Error("Update is in progress, cannot rollback");
+                }
+
+                if (!autoUpdater.getRollbackImage()) {
+                    throw new Error("No rollback image available");
+                }
+
+                callback({
+                    ok: true,
+                    msg: "rollbackStarted",
+                    msgi18n: true,
+                });
+
+                autoUpdater.rollback().then((success) => {
+                    if (!success) {
+                        socket.emit("autoUpdateError", {
+                            msg: "rollbackFailed",
+                            msgi18n: true,
+                        });
+                    }
+                }).catch((e) => {
+                    socket.emit("autoUpdateError", {
+                        msg: e.message,
+                    });
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        // ***************************
+        // Update Logs Socket API
+        // ***************************
+
+        socket.on("getUpdateLogs", async (data, callback) => {
+            try {
+                checkLogin(socket);
+                const limit = data?.limit || 50;
+                const offset = data?.offset || 0;
+                const logs = await autoUpdater.getLogs(limit, offset);
+                const total = await autoUpdater.getLogCount();
+                callback({
+                    ok: true,
+                    logs,
+                    total,
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        socket.on("clearUpdateLogs", async (data, callback) => {
+            try {
+                checkLogin(socket);
+                const olderThanDays = data?.olderThanDays;
+                const deleted = await autoUpdater.clearLogs(olderThanDays);
+                callback({
+                    ok: true,
+                    deleted,
+                    msg: "logsDeleted",
+                    msgi18n: true,
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        // ***************************
+        // Notification Config Socket API
+        // ***************************
+
+        socket.on("getNotificationConfig", async (callback) => {
+            try {
+                checkLogin(socket);
+                const config = await notificationManager.getConfig();
+                callback({
+                    ok: true,
+                    config,
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        socket.on("setNotificationConfig", async (config, callback) => {
+            try {
+                checkLogin(socket);
+                await notificationManager.setConfig(config);
+                callback({
+                    ok: true,
+                    msg: "notificationConfigSaved",
+                    msgi18n: true,
+                });
+            } catch (e) {
+                if (e instanceof Error) {
+                    callback({
+                        ok: false,
+                        msg: e.message,
+                    });
+                }
+            }
+        });
+
+        socket.on("testWebhook", async (callback) => {
+            try {
+                checkLogin(socket);
+                await notificationManager.send({
+                    event: "update_success",
+                    title: "Webhook Test",
+                    message: "This is a test notification from Dockge.",
+                    imageName: "test/image:latest",
+                    targetType: "test",
+                    targetName: "test",
+                    timestamp: Date.now(),
+                });
+                callback({
+                    ok: true,
+                    msg: "webhookTestSent",
+                    msgi18n: true,
                 });
             } catch (e) {
                 if (e instanceof Error) {
