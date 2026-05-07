@@ -82,7 +82,9 @@ export class AutoUpdater {
 
             log.info("auto-update", "Checking all stacks for image updates...");
 
-            const excludedStacks = await this.getExcludedStacks();
+            const whitelistMode = await this.getSettingBool("autoUpdateWhitelistMode");
+            const whitelist = await this.getStringList("autoUpdateWhitelist");
+            const excludedStacks = await this.getStringList("autoUpdateExcludedStacks");
             const stackList = await Stack.getStackList(this.server, true);
             const allResults: UpdateCheckResult[] = [];
 
@@ -91,7 +93,12 @@ export class AutoUpdater {
                     continue;
                 }
 
-                if (excludedStacks.includes(name)) {
+                if (whitelistMode && whitelist.length > 0 && !whitelist.includes(name)) {
+                    log.debug("auto-update", `Skipping non-whitelisted stack: ${name}`);
+                    continue;
+                }
+
+                if (!whitelistMode && excludedStacks.includes(name)) {
                     log.debug("auto-update", `Skipping excluded stack: ${name}`);
                     continue;
                 }
@@ -549,9 +556,14 @@ export class AutoUpdater {
         }
     }
 
-    protected async getExcludedStacks(): Promise<string[]> {
+    protected async getSettingBool(key: string): Promise<boolean> {
+        const val = await Settings.get(key);
+        return val === true || val === "true";
+    }
+
+    protected async getStringList(key: string): Promise<string[]> {
         try {
-            const val = await Settings.get("autoUpdateExcludedStacks");
+            const val = await Settings.get(key);
             if (!val) {
                 return [];
             }
@@ -573,23 +585,32 @@ export class AutoUpdater {
     }
 
     async getUpdateStatus(): Promise<Record<string, unknown>> {
-        const enabled = await Settings.get("autoUpdateEnabled") || false;
+        const enabled = await this.getSettingBool("autoUpdateEnabled");
         const checkInterval = parseInt(await Settings.get("autoUpdateCheckInterval") as string) || 60;
-        const autoDeploy = await Settings.get("autoUpdateAutoDeploy") || false;
-        const autoRollback = await Settings.get("autoUpdateAutoRollback") || false;
+        const autoDeploy = await this.getSettingBool("autoUpdateAutoDeploy");
+        const autoRollback = await this.getSettingBool("autoUpdateAutoRollback");
         const logRetentionDays = parseInt(await Settings.get("autoUpdateLogRetentionDays") as string) || 30;
-        const excludedStacks = await this.getExcludedStacks();
-        const notifications = await Settings.get("autoUpdateNotifications");
-        const notificationsEnabled = notifications !== false && notifications !== "false";
+        const excludedStacks = await this.getStringList("autoUpdateExcludedStacks");
+        const notifications = await this.getSettingBool("autoUpdateNotifications");
+        const whitelistMode = await this.getSettingBool("autoUpdateWhitelistMode");
+        const whitelist = await this.getStringList("autoUpdateWhitelist");
+        const miotifyUrl = (await Settings.get("autoUpdateMiotifyUrl") as string) || "";
+        const miotifyToken = (await Settings.get("autoUpdateMiotifyToken") as string) || "";
+        const miotifyEnabled = await this.getSettingBool("autoUpdateMiotifyEnabled");
 
         return {
-            enabled: enabled === true || enabled === "true",
+            enabled,
             checkInterval,
-            autoDeploy: autoDeploy === true || autoDeploy === "true",
-            autoRollback: autoRollback === true || autoRollback === "true",
+            autoDeploy,
+            autoRollback,
             logRetentionDays,
             excludedStacks,
-            notifications: notificationsEnabled,
+            notifications,
+            whitelistMode,
+            whitelist,
+            miotifyEnabled,
+            miotifyUrl,
+            miotifyToken,
             isChecking: this.isChecking,
             isUpdating: this.isUpdating,
         };
@@ -604,6 +625,11 @@ export class AutoUpdater {
             logRetentionDays: "autoUpdateLogRetentionDays",
             excludedStacks: "autoUpdateExcludedStacks",
             notifications: "autoUpdateNotifications",
+            whitelistMode: "autoUpdateWhitelistMode",
+            whitelist: "autoUpdateWhitelist",
+            miotifyEnabled: "autoUpdateMiotifyEnabled",
+            miotifyUrl: "autoUpdateMiotifyUrl",
+            miotifyToken: "autoUpdateMiotifyToken",
         };
 
         for (const [frontendKey, backendKey] of Object.entries(keyMap)) {
@@ -623,8 +649,8 @@ export class AutoUpdater {
 
     protected async sendNotification(type: string, stackName: string, detail?: string) {
         try {
-            const enabled = await Settings.get("autoUpdateNotifications");
-            if (!enabled || enabled === "false") {
+            const enabled = await this.getSettingBool("autoUpdateNotifications");
+            if (!enabled) {
                 return;
             }
 
@@ -634,9 +660,75 @@ export class AutoUpdater {
                 detail,
                 timestamp: dayjs().toISOString(),
             });
+
+            await this.sendMiotifyNotification(type, stackName, detail);
         } catch (e) {
             if (e instanceof Error) {
                 log.error("auto-update", `Failed to send notification: ${e.message}`);
+            }
+        }
+    }
+
+    protected async sendMiotifyNotification(type: string, stackName: string, detail?: string) {
+        try {
+            const miotifyEnabled = await this.getSettingBool("autoUpdateMiotifyEnabled");
+            if (!miotifyEnabled) {
+                return;
+            }
+
+            const miotifyUrl = await Settings.get("autoUpdateMiotifyUrl") as string;
+            const miotifyToken = await Settings.get("autoUpdateMiotifyToken") as string;
+
+            if (!miotifyUrl || !miotifyToken) {
+                log.warn("auto-update", "Miotify URL or Token not configured, skipping notification");
+                return;
+            }
+
+            const titleMap: Record<string, string> = {
+                update_available: "📦 Update Available",
+                update_success: "✅ Update Success",
+                update_failed: "❌ Update Failed",
+                rollback_success: "🔄 Rollback Success",
+                rollback_failed: "⚠️ Rollback Failed",
+            };
+
+            const title = titleMap[type] || type;
+            const message = detail
+                ? `${stackName}: ${detail}`
+                : stackName;
+
+            const priorityMap: Record<string, number> = {
+                update_available: 5,
+                update_success: 3,
+                update_failed: 8,
+                rollback_success: 5,
+                rollback_failed: 9,
+            };
+
+            const baseUrl = miotifyUrl.replace(/\/+$/, "");
+            const url = `${baseUrl}/message`;
+
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Gotify-Key": miotifyToken,
+                },
+                body: JSON.stringify({
+                    title,
+                    message,
+                    priority: priorityMap[type] || 5,
+                }),
+            });
+
+            if (!res.ok) {
+                log.warn("auto-update", `Miotify notification failed: ${res.status} ${res.statusText}`);
+            } else {
+                log.debug("auto-update", `Miotify notification sent: ${type} for ${stackName}`);
+            }
+        } catch (e) {
+            if (e instanceof Error) {
+                log.warn("auto-update", `Miotify notification error: ${e.message}`);
             }
         }
     }

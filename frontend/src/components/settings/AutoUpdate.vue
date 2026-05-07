@@ -54,12 +54,61 @@
 
             <div v-if="autoUpdateSettings.enabled" class="mb-4">
                 <div class="form-check form-switch">
+                    <input id="whitelistMode" v-model="autoUpdateSettings.whitelistMode" class="form-check-input" type="checkbox" />
+                    <label class="form-check-label" for="whitelistMode">
+                        {{ $t("autoUpdateWhitelistMode") }}
+                    </label>
+                </div>
+                <div class="form-text">{{ $t("autoUpdateWhitelistModeDescription") }}</div>
+            </div>
+
+            <div v-if="autoUpdateSettings.enabled && autoUpdateSettings.whitelistMode" class="mb-4">
+                <label class="form-label">{{ $t("autoUpdateWhitelist") }}</label>
+                <select v-model="autoUpdateSettings.whitelist" class="form-select" multiple size="6">
+                    <option v-for="stack in stackList" :key="stack" :value="stack">{{ stack }}</option>
+                </select>
+                <div class="form-text">{{ $t("autoUpdateWhitelistDescription") }}</div>
+            </div>
+
+            <div v-if="autoUpdateSettings.enabled && !autoUpdateSettings.whitelistMode" class="mb-4">
+                <label class="form-label">{{ $t("autoUpdateExcludedStacks") }}</label>
+                <select v-model="autoUpdateSettings.excludedStacks" class="form-select" multiple size="6">
+                    <option v-for="stack in stackList" :key="stack" :value="stack">{{ stack }}</option>
+                </select>
+                <div class="form-text">{{ $t("autoUpdateExcludedStacksDescription") }}</div>
+            </div>
+
+            <div v-if="autoUpdateSettings.enabled" class="mb-4">
+                <div class="form-check form-switch">
                     <input id="notifications" v-model="autoUpdateSettings.notifications" class="form-check-input" type="checkbox" />
                     <label class="form-check-label" for="notifications">
                         {{ $t("autoUpdateNotifications") }}
                     </label>
                 </div>
                 <div class="form-text">{{ $t("autoUpdateNotificationsDescription") }}</div>
+            </div>
+
+            <div v-if="autoUpdateSettings.enabled" class="mb-4">
+                <div class="form-check form-switch">
+                    <input id="miotifyEnabled" v-model="autoUpdateSettings.miotifyEnabled" class="form-check-input" type="checkbox" />
+                    <label class="form-check-label" for="miotifyEnabled">
+                        {{ $t("autoUpdateMiotifyEnabled") }}
+                    </label>
+                </div>
+                <div class="form-text">{{ $t("autoUpdateMiotifyEnabledDescription") }}</div>
+            </div>
+
+            <div v-if="autoUpdateSettings.enabled && autoUpdateSettings.miotifyEnabled" class="mb-4">
+                <div class="mb-3">
+                    <label class="form-label" for="miotifyUrl">{{ $t("autoUpdateMiotifyUrl") }}</label>
+                    <input id="miotifyUrl" v-model="autoUpdateSettings.miotifyUrl" class="form-control" type="url" placeholder="https://miotify.example.com" />
+                    <div class="form-text">{{ $t("autoUpdateMiotifyUrlDescription") }}</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="miotifyToken">{{ $t("autoUpdateMiotifyToken") }}</label>
+                    <input id="miotifyToken" v-model="autoUpdateSettings.miotifyToken" class="form-control" type="password" placeholder="App Token" />
+                    <div class="form-text">{{ $t("autoUpdateMiotifyTokenDescription") }}</div>
+                </div>
             </div>
 
             <div class="mb-4">
@@ -135,6 +184,11 @@ export default {
                 logRetentionDays: 30,
                 notifications: true,
                 excludedStacks: [],
+                whitelistMode: false,
+                whitelist: [],
+                miotifyEnabled: false,
+                miotifyUrl: "",
+                miotifyToken: "",
             },
             logs: [],
             logFilter: "",
@@ -193,6 +247,11 @@ export default {
                         logRetentionDays: res.data.logRetentionDays || 30,
                         notifications: res.data.notifications !== false,
                         excludedStacks: res.data.excludedStacks || [],
+                        whitelistMode: res.data.whitelistMode || false,
+                        whitelist: res.data.whitelist || [],
+                        miotifyEnabled: res.data.miotifyEnabled || false,
+                        miotifyUrl: res.data.miotifyUrl || "",
+                        miotifyToken: res.data.miotifyToken || "",
                     };
                 }
             });

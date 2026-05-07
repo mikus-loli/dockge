@@ -248,6 +248,18 @@
     "autoUpdateRollbackSuccess": "Stack rolled back successfully.",
     "autoUpdateRollbackFailed": "Failed to rollback stack.",
     "autoUpdateLogsCleared": "Old logs cleared.",
+    "autoUpdateWhitelistMode": "Whitelist Mode",
+    "autoUpdateWhitelistModeDescription": "Only update stacks in the whitelist. When disabled, all stacks except excluded ones will be updated.",
+    "autoUpdateWhitelist": "Whitelisted Stacks",
+    "autoUpdateWhitelistDescription": "Select stacks to include in auto-update. Hold Ctrl/Cmd to select multiple.",
+    "autoUpdateExcludedStacks": "Excluded Stacks",
+    "autoUpdateExcludedStacksDescription": "Select stacks to exclude from auto-update. Hold Ctrl/Cmd to select multiple.",
+    "autoUpdateMiotifyEnabled": "Miotify Notification",
+    "autoUpdateMiotifyEnabledDescription": "Send push notifications via Miotify when updates are available, deployed, or fail.",
+    "autoUpdateMiotifyUrl": "Miotify Server URL",
+    "autoUpdateMiotifyUrlDescription": "The URL of your Miotify server instance.",
+    "autoUpdateMiotifyToken": "Miotify App Token",
+    "autoUpdateMiotifyTokenDescription": "The application token from your Miotify server.",
     "All Stacks": "All Stacks",
     "days": "days"
 }

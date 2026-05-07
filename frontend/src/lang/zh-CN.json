@@ -228,6 +228,18 @@
     "autoUpdateRollbackSuccess": "堆栈回滚成功。",
     "autoUpdateRollbackFailed": "堆栈回滚失败。",
     "autoUpdateLogsCleared": "旧日志已清除。",
+    "autoUpdateWhitelistMode": "白名单模式",
+    "autoUpdateWhitelistModeDescription": "仅更新白名单中的堆栈。禁用时，将更新除排除列表外的所有堆栈。",
+    "autoUpdateWhitelist": "白名单堆栈",
+    "autoUpdateWhitelistDescription": "选择要纳入自动更新的堆栈。按住 Ctrl/Cmd 可多选。",
+    "autoUpdateExcludedStacks": "排除堆栈",
+    "autoUpdateExcludedStacksDescription": "选择要从自动更新中排除的堆栈。按住 Ctrl/Cmd 可多选。",
+    "autoUpdateMiotifyEnabled": "Miotify 通知",
+    "autoUpdateMiotifyEnabledDescription": "通过 Miotify 发送推送通知，在有可用更新、部署成功或失败时通知您。",
+    "autoUpdateMiotifyUrl": "Miotify 服务器地址",
+    "autoUpdateMiotifyUrlDescription": "您的 Miotify 服务器实例的 URL 地址。",
+    "autoUpdateMiotifyToken": "Miotify 应用令牌",
+    "autoUpdateMiotifyTokenDescription": "从 Miotify 服务器获取的应用令牌。",
     "All Stacks": "所有堆栈",
     "days": "天"
 }
