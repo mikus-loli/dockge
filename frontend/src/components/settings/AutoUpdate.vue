@@ -151,8 +151,11 @@
                     <option value="">{{ $t("All Stacks") }}</option>
                     <option v-for="stack in stackList" :key="stack" :value="stack">{{ stack }}</option>
                 </select>
-                <button class="btn btn-outline-danger" type="button" @click="clearLogs">
-                    {{ $t("autoUpdateClearLogs") }}
+                <button class="btn btn-outline-warning" type="button" @click="clearOldLogs">
+                    {{ $t("autoUpdateClearOldLogs") }}
+                </button>
+                <button class="btn btn-outline-danger" type="button" @click="clearAllLogs">
+                    {{ $t("autoUpdateClearAllLogs") }}
                 </button>
             </div>
         </div>
@@ -346,8 +349,17 @@ export default {
             });
         },
 
-        clearLogs() {
+        clearOldLogs() {
             this.$root.getSocket().emit("autoUpdateClearLogs", this.autoUpdateSettings.logRetentionDays, (res) => {
+                if (res.ok) {
+                    this.$root.toastRes(res);
+                    this.loadLogs();
+                }
+            });
+        },
+
+        clearAllLogs() {
+            this.$root.getSocket().emit("autoUpdateClearAllLogs", (res) => {
                 if (res.ok) {
                     this.$root.toastRes(res);
                     this.loadLogs();

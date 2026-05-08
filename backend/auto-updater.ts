@@ -504,12 +504,12 @@ export class AutoUpdater {
     async addUpdateLog(entry: UpdateLogEntry) {
         try {
             let bean = R.dispense("update_log");
-            bean.stackName = entry.stackName;
+            bean.stack_name = entry.stackName;
             bean.type = entry.type;
             bean.status = entry.status;
             bean.message = entry.message;
-            bean.oldDigest = entry.oldDigest || "";
-            bean.newDigest = entry.newDigest || "";
+            bean.old_digest = entry.oldDigest || "";
+            bean.new_digest = entry.newDigest || "";
             bean.timestamp = entry.timestamp;
             await R.store(bean);
         } catch (e) {
@@ -547,12 +547,27 @@ export class AutoUpdater {
     async clearUpdateLogs(beforeDays = 30) {
         try {
             const cutoff = dayjs().subtract(beforeDays, "day").toISOString();
-            await R.exec("DELETE FROM update_log WHERE timestamp < ?", [cutoff]);
+            const result = await R.exec("DELETE FROM update_log WHERE timestamp < ?", [cutoff]);
             log.info("auto-update", `Cleared update logs older than ${beforeDays} days`);
+            return result;
         } catch (e) {
             if (e instanceof Error) {
                 log.error("auto-update", `Failed to clear update logs: ${e.message}`);
             }
+            return 0;
+        }
+    }
+
+    async clearAllUpdateLogs() {
+        try {
+            const result = await R.exec("DELETE FROM update_log");
+            log.info("auto-update", "Cleared all update logs");
+            return result;
+        } catch (e) {
+            if (e instanceof Error) {
+                log.error("auto-update", `Failed to clear all update logs: ${e.message}`);
+            }
+            return 0;
         }
     }
 

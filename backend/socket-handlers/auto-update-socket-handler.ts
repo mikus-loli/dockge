@@ -153,6 +153,20 @@ export class AutoUpdateSocketHandler extends SocketHandler {
             }
         });
 
+        socket.on("autoUpdateClearAllLogs", async (callback) => {
+            try {
+                checkLogin(socket);
+                await autoUpdater.clearAllUpdateLogs();
+                callbackResult({
+                    ok: true,
+                    msg: "autoUpdateAllLogsCleared",
+                    msgi18n: true,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
         socket.on("autoUpdateTestNotification", async (callback) => {
             try {
                 checkLogin(socket);
