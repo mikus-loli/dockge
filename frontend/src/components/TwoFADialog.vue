@@ -16,10 +16,7 @@
                         <!-- Step 1: Enable TOTP (when 2FA is not active) -->
                         <div v-if="twoFAStatus == false && !uri" class="mb-3">
                             <h6 class="mb-3">{{ $t("Enable TOTP 2FA") }}</h6>
-                            <div class="alert alert-info">
-                                <strong>{{ $t("How TOTP works") }}</strong>
-                                <p class="mb-0">{{ $t("TOTP uses an authenticator app (like Google Authenticator, Authy, or Microsoft Authenticator) to generate time-based verification codes.") }}</p>
-                            </div>
+                            <p class="mb-0">{{ $t("TOTP uses an authenticator app (like Google Authenticator, Authy, or Microsoft Authenticator) to generate time-based verification codes.") }}</p>
                             <div class="mb-3">
                                 <label for="current-password-totp" class="form-label">
                                     {{ $t("Current Password") }}

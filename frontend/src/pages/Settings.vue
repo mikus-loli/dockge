@@ -243,7 +243,7 @@ footer {
 
         .dark & {
             background: $dark-header-bg;
-            border-bottom: 0;
+            border-bottom: 1px solid $dark-border-color;
         }
 
         .mobile & {
