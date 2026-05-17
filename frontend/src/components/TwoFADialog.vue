@@ -338,5 +338,32 @@ export default {
     .modal-dialog .form-text, .modal-dialog p {
         color: $dark-font-color;
     }
+
+    .alert-info {
+        background-color: rgba($primary, 0.1);
+        border-color: rgba($primary, 0.25);
+        color: lighten($primary, 20%);
+    }
+
+    .alert-warning {
+        background-color: rgba($warning, 0.1);
+        border-color: rgba($warning, 0.25);
+        color: lighten($warning, 15%);
+    }
+
+    .alert-secondary {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-color: $dark-border-color;
+        color: $dark-font-color;
+    }
+
+    .card {
+        background-color: rgba(255, 255, 255, 0.04);
+        border-color: $dark-border-color;
+
+        .card-body {
+            color: $dark-font-color;
+        }
+    }
 }
 </style>

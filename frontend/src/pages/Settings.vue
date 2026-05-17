@@ -183,6 +183,10 @@ export default {
 .shadow-box-settings {
     padding: 20px;
     min-height: calc(100vh - 155px);
+
+    .dark & {
+        background-color: $dark-bg;
+    }
 }
 
 footer {
